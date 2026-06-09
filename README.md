@@ -1,5 +1,7 @@
 # Langfuse Python Tutorial
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A hands-on, three-day learning path for [Langfuse](https://langfuse.com) — an open-source LLM observability and tracing platform. All examples use a **QA Architect chatbot** as the domain so concepts stay concrete and consistent across the progression.
 
 ---
@@ -293,3 +295,9 @@ ollama serve            # restart
 ```bash
 pip install --upgrade langfuse openai
 ```
+
+---
+
+## License
+
+[MIT](LICENSE)
