@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse + Ollama · Day 2 · Hour 2 · Scoring & Feedback</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14;--surface:#13161e;--surface2:#1a1e28;
+    --border:#252a38;--border2:#2e3548;
+    --text:#e8eaf0;--muted:#6b7394;--dim:#3d4460;
+    --accent:#7c9eff;--accent2:#a78bfa;--accent3:#34d399;
+    --accent4:#fb923c;--accent5:#f472b6;--accent6:#facc15;
+    --code-bg:#0a0c12;--hl:#1e2235;
+    --tb:#1a2540;--tbt:#7c9eff;
+    --tg:#0f2018;--tgt:#34d399;
+    --tp:#1e1530;--tpt:#a78bfa;
+    --to:#201509;--tot:#fb923c;
+    --ty:#1c1805;--tyt:#facc15;
+    --tr:#200d0d;--trt:#f87171;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;font-size:16px;}
+
+  header{border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;background:rgba(13,15,20,.94);backdrop-filter:blur(14px);z-index:100;display:flex;align-items:center;justify-content:space-between;height:56px;}
+  .logo-pill{background:linear-gradient(135deg,#f472b6,#a78bfa);color:#fff;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;letter-spacing:.05em;}
+  .hl{display:flex;align-items:center;gap:12px;}
+  .ht{font-size:13px;color:var(--muted);font-weight:300;}
+  .chips{display:flex;gap:6px;}
+  .chip{font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+  .chip.done{border-color:var(--accent3);color:var(--accent3);background:rgba(52,211,153,.07);}
+  .chip.active{border-color:var(--accent5);color:var(--accent5);background:rgba(244,114,182,.08);}
+
+  .layout{display:flex;min-height:calc(100vh - 56px);}
+
+  aside{width:245px;flex-shrink:0;border-right:1px solid var(--border);padding:2rem 0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;}
+  .sbs{padding:0 1.25rem;margin-bottom:2rem;}
+  .sbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:.75rem;}
+  .sbi{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:2px;transition:all .15s;}
+  .sbi:hover{background:var(--surface2);color:var(--text);}
+  .sbi.active{background:var(--hl);color:var(--accent5);}
+  .dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;flex-shrink:0;}
+  .dot.done{background:rgba(52,211,153,.15);color:var(--accent3);}
+  .dot.cur{background:rgba(244,114,182,.15);color:var(--accent5);}
+  .dot.todo{background:var(--surface2);color:var(--dim);}
+
+  main{flex:1;padding:3rem 3.5rem;max-width:900px;}
+
+  .hero{margin-bottom:3rem;padding-bottom:2.5rem;border-bottom:1px solid var(--border);}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+  .eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent5);}
+  .hero h1{font-family:'Fraunces',serif;font-size:2.6rem;font-weight:300;line-height:1.15;color:var(--text);margin-bottom:1rem;}
+  .hero h1 em{font-style:italic;color:var(--accent5);}
+  .hero-sub{font-size:15px;color:var(--muted);max-width:580px;line-height:1.7;}
+  .hero-meta{display:flex;gap:1.5rem;margin-top:1.5rem;flex-wrap:wrap;}
+  .mb{display:flex;align-items:center;gap:6px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--muted);}
+  .md{width:6px;height:6px;border-radius:50%;background:var(--accent5);}
+
+  /* SCORE TYPE CARDS */
+  .score-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:1.25rem 0;}
+  @media(max-width:700px){.score-grid{grid-template-columns:1fr;}}
+  .score-card{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.1rem 1.25rem;}
+  .sc-type{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;margin-bottom:.6rem;}
+  .sc-num{background:var(--tb);color:var(--tbt);}
+  .sc-bool{background:var(--tg);color:var(--tgt);}
+  .sc-cat{background:var(--tp);color:var(--tpt);}
+  .sc-text{background:var(--to);color:var(--tot);}
+  .sc-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;}
+  .sc-desc{font-size:12px;color:var(--muted);line-height:1.6;}
+  .sc-example{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);margin-top:6px;}
+
+  /* CALLOUTS */
+  .insight{background:rgba(244,114,182,.05);border:1px solid rgba(244,114,182,.2);border-left:3px solid var(--accent5);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .insight strong{color:var(--accent5);font-weight:500;}
+  .warn{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.2);border-left:3px solid var(--accent4);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .warn strong{color:var(--accent4);font-weight:500;}
+  .success{background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.2);border-left:3px solid var(--accent3);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .success strong{color:var(--accent3);font-weight:500;}
+  .blue{background:rgba(124,158,255,.05);border:1px solid rgba(124,158,255,.2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .blue strong{color:var(--accent);font-weight:500;}
+  .purple{background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.2);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .purple strong{color:var(--accent2);font-weight:500;}
+
+  /* STEPS */
+  .step{margin-bottom:3rem;}
+  .shdr{display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;}
+  .snum{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent5),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+  .stitle{font-family:'Fraunces',serif;font-size:1.3rem;font-weight:500;color:var(--text);line-height:1.2;}
+  .ssub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+  .sbody{padding-left:50px;}
+  p{margin-bottom:1rem;color:var(--muted);font-size:15px;}
+  p strong{color:var(--text);font-weight:500;}
+
+  /* CODE */
+  .cb{background:var(--code-bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin:1.25rem 0;}
+  .ch{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;}
+  .cf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .lt{font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .lb{background:var(--tg);color:var(--tgt);}
+  .lp{background:var(--tb);color:var(--tbt);}
+  .copy{background:none;border:1px solid var(--border2);color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:5px;cursor:pointer;transition:all .15s;}
+  .copy:hover{background:var(--surface2);color:var(--text);}
+  .copy.copied{color:var(--accent3);border-color:var(--accent3);}
+  pre{padding:1.25rem 1.5rem;overflow-x:auto;line-height:1.7;}
+  code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+  code.il{background:var(--surface2);border:1px solid var(--border2);padding:1px 6px;border-radius:4px;font-size:12.5px;color:var(--accent5);}
+
+  /* SYNTAX */
+  .kw{color:#c792ea;}.fn{color:#82aaff;}.st{color:#c3e88d;}.cm{color:#4a5568;font-style:italic;}
+  .nu{color:#f78c6c;}.ty{color:#ffcb6b;}.at{color:#fb923c;}
+  .bp{color:var(--accent3);user-select:none;}.bc{color:var(--dim);font-style:italic;}
+
+  /* SCORE FLOW DIAGRAM */
+  .score-flow{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin:1.25rem 0;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:2;}
+  .sf-title{font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;}
+  .sf-level{color:var(--accent5);font-weight:700;}
+  .sf-trace{color:var(--accent);font-weight:700;}
+  .sf-obs{color:var(--accent2);font-weight:700;}
+  .sf-score{color:var(--accent3);}
+  .sf-dim{color:var(--dim);}
+
+  /* METHODS COMPARISON */
+  .method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:1.25rem 0;}
+  @media(max-width:700px){.method-grid{grid-template-columns:1fr;}}
+  .method-card{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:1rem;}
+  .mc-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px;}
+  .mc-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;}
+  .mc-desc{font-size:12px;color:var(--muted);line-height:1.6;}
+  .mc-when{font-size:11px;color:var(--accent5);margin-top:6px;font-style:italic;}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:13.5px;}
+  th{text-align:left;padding:10px 14px;background:var(--surface);border:1px solid var(--border2);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:500;}
+  td{padding:10px 14px;border:1px solid var(--border);color:var(--muted);vertical-align:top;line-height:1.5;font-size:13px;}
+  tr:hover td{background:var(--surface);}
+  td strong{color:var(--text);font-weight:500;}
+  td code{font-family:'JetBrains Mono',monospace;font-size:11.5px;background:var(--surface2);padding:1px 5px;border-radius:3px;color:var(--accent5);}
+
+  /* CHECKPOINT */
+  .checkpoint{background:linear-gradient(135deg,rgba(244,114,182,.05),rgba(167,139,250,.05));border:1px solid rgba(244,114,182,.2);border-radius:10px;padding:1.5rem;margin:2.5rem 0;}
+  .cp-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;}
+  .cp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;}
+  .cp-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);}
+  .cp-icon{color:var(--accent5);flex-shrink:0;}
+
+  /* EXERCISE */
+  .exercise{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin-top:2rem;}
+  .ex-hdr{display:flex;align-items:center;gap:10px;margin-bottom:1rem;}
+  .ex-badge{background:rgba(244,114,182,.1);color:var(--accent5);border:1px solid rgba(244,114,182,.3);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.08em;}
+  .ex-title{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:500;color:var(--text);}
+  .ex-body{font-size:14px;color:var(--muted);line-height:1.7;}
+  .ex-body ul{padding-left:1.25rem;margin-top:.5rem;}
+  .ex-body li{margin-bottom:8px;}
+
+  /* NEXT */
+  .next{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:2.5rem;}
+  .nl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
+  .nt{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:500;color:var(--text);}
+  .nd{font-size:13px;color:var(--muted);margin-top:4px;}
+  .na{font-size:22px;color:var(--accent5);flex-shrink:0;}
+
+  hr.div{border:none;border-top:1px solid var(--border);margin:2.5rem 0;}
+  ::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+  @media(max-width:768px){aside{display:none;}main{padding:2rem 1.5rem;}.hero h1{font-size:1.9rem;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hl">
+    <span class="logo-pill">SCORES</span>
+    <span class="ht">Langfuse · Scoring & Feedback · Ollama</span>
+  </div>
+  <div class="chips">
+    <span class="chip done">Day 1 ✓</span>
+    <span class="chip done">D2·H1 ✓</span>
+    <span class="chip active">D2·H2</span>
+    <span class="chip">H3</span>
+  </div>
+</header>
+
+<div class="layout">
+<aside>
+  <div class="sbs">
+    <div class="sbl">Hour 2 · Steps</div>
+    <a class="sbi active" href="#s1"><span class="dot cur">1</span> Score types & model</a>
+    <a class="sbi" href="#s2"><span class="dot todo">2</span> 3 scoring methods</a>
+    <a class="sbi" href="#s3"><span class="dot todo">3</span> Numeric scores</a>
+    <a class="sbi" href="#s4"><span class="dot todo">4</span> Boolean: thumbs up/down</a>
+    <a class="sbi" href="#s5"><span class="dot todo">5</span> Categorical scores</a>
+    <a class="sbi" href="#s6"><span class="dot todo">6</span> Observation-level scores</a>
+    <a class="sbi" href="#s7"><span class="dot todo">7</span> Async user feedback</a>
+    <a class="sbi" href="#s8"><span class="dot todo">8</span> Score configs</a>
+    <a class="sbi" href="#s9"><span class="dot todo">9</span> Hour 2 mini-project</a>
+  </div>
+  <div class="sbs">
+    <div class="sbl">Day 2 Plan</div>
+    <a class="sbi" href="#"><span class="dot done">H1</span> Prompt management ✓</a>
+    <a class="sbi" href="#s1"><span class="dot cur">H2</span> Scoring & feedback</a>
+    <a class="sbi" href="#"><span class="dot todo">H3</span> LLM-as-a-judge evals</a>
+  </div>
+  <div class="sbs">
+    <div class="sbl">Score anatomy</div>
+    <div style="font-size:12px;color:var(--muted);padding:0 10px;line-height:1.9;">
+      <div><span style="color:var(--accent)">trace_id</span> — required always</div>
+      <div><span style="color:var(--accent2)">observation_id</span> — optional, pins to span</div>
+      <div><span style="color:var(--accent3)">name</span> — your custom metric label</div>
+      <div><span style="color:var(--accent4)">value</span> — float / string / 0|1</div>
+      <div><span style="color:var(--accent5)">data_type</span> — NUMERIC/BOOL/CAT/TEXT</div>
+    </div>
+  </div>
+</aside>
+
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eyebrow">Day 2 · Hour 2 of 9</div>
+    <h1>Scoring &amp; <em>user feedback</em><br>loops</h1>
+    <p class="hero-sub">Add thumbs up/down, quality ratings, and categorical labels to every trace. Build a feedback loop where low-scoring responses are automatically surfaced for human review.</p>
+    <div class="hero-meta">
+      <span class="mb"><span class="md"></span> ~60 minutes</span>
+      <span class="mb"><span class="md" style="background:var(--accent2)"></span> 4 Python files</span>
+      <span class="mb"><span class="md" style="background:var(--accent4)"></span> Builds on Day 2 H1 chatbot</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: Score types -->
+  <div class="step" id="s1">
+    <div class="shdr">
+      <div class="snum">1</div>
+      <div>
+        <div class="stitle">Score types & the data model</div>
+        <div class="ssub">four types · three attachment levels</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>A <strong>score</strong> in Langfuse is a structured evaluation result attached to a trace or observation. Think of it as the answer to "how good was this response?" — expressed as a number, a label, a yes/no, or a text note.</p>
+
+      <div class="score-grid">
+        <div class="score-card">
+          <span class="sc-type sc-num">NUMERIC</span>
+          <div class="sc-title">Continuous quality measure</div>
+          <div class="sc-desc">Any float value. Great for helpfulness (0.0–1.0), relevance scores, similarity, response length penalties.</div>
+          <div class="sc-example">value=0.85 → "helpfulness"</div>
+        </div>
+        <div class="score-card">
+          <span class="sc-type sc-bool">BOOLEAN</span>
+          <div class="sc-title">True/false binary decision</div>
+          <div class="sc-desc">Value must be 0 or 1 (not True/False). Perfect for thumbs up/down, correct/incorrect, on-topic/off-topic.</div>
+          <div class="sc-example">value=1 → "user_thumbs_up"</div>
+        </div>
+        <div class="score-card">
+          <span class="sc-type sc-cat">CATEGORICAL</span>
+          <div class="sc-title">Discrete label from a set</div>
+          <div class="sc-desc">String value from a predefined set. Good for quality tiers (excellent/good/poor), response type labels, intent classification.</div>
+          <div class="sc-example">value="good" → "response_quality"</div>
+        </div>
+        <div class="score-card">
+          <span class="sc-type sc-text">TEXT</span>
+          <div class="sc-title">Free-form reviewer notes</div>
+          <div class="sc-desc">String up to 500 chars. Good for human reviewer comments, bug descriptions, qualitative notes alongside a numeric score.</div>
+          <div class="sc-example">value="Answer was correct but verbose"</div>
+        </div>
+      </div>
+
+      <p>Scores can be attached at three levels:</p>
+
+      <div class="score-flow">
+        <div class="sf-title">Score attachment levels</div>
+        <span class="sf-level">SESSION</span>  <span class="sf-dim">← score an entire multi-turn conversation</span>
+        <br>
+        <span class="sf-trace">  TRACE</span>    <span class="sf-dim">← score one user request end-to-end  (most common)</span>
+        <br>
+        <span class="sf-obs">    OBSERVATION</span> <span class="sf-dim">← score a specific span or generation inside the trace</span>
+        <br>
+        <span class="sf-score">      score</span> <span class="sf-dim">name="helpfulness" value=0.9 data_type="NUMERIC"</span>
+        <br>
+        <span class="sf-score">      score</span> <span class="sf-dim">name="user_feedback" value=1 data_type="BOOLEAN"</span>
+      </div>
+
+      <div class="insight">
+        <strong>Rule of thumb:</strong> Attach scores to <strong>traces</strong> for overall quality (user feedback, end-to-end correctness). Attach to <strong>observations</strong> (specific generations) when you want to evaluate the LLM call itself — faithfulness, hallucination, response format. You'll use both today.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 2: 3 methods -->
+  <div class="step" id="s2">
+    <div class="shdr">
+      <div class="snum">2</div>
+      <div>
+        <div class="stitle">Three ways to create scores</div>
+        <div class="ssub">choose the right method for each situation</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <div class="method-grid">
+        <div class="method-card">
+          <div class="mc-num">METHOD 1</div>
+          <div class="mc-title">Low-level create_score()</div>
+          <div class="mc-desc">Pass trace_id + observation_id explicitly. Works from anywhere — inside or outside a span context, even in a different process.</div>
+          <div class="mc-when">Use for: async feedback, post-processing pipelines, CI evaluators</div>
+        </div>
+        <div class="method-card">
+          <div class="mc-num">METHOD 2</div>
+          <div class="mc-title">span.score() / span.score_trace()</div>
+          <div class="mc-desc">Score the current span object directly. You hold a reference to the span and call score on it inline.</div>
+          <div class="mc-when">Use for: scores computed right after the operation completes</div>
+        </div>
+        <div class="method-card">
+          <div class="mc-num">METHOD 3</div>
+          <div class="mc-title">score_current_span/trace()</div>
+          <div class="mc-desc">Context-aware — scores whichever span/trace is currently active in the OTel context. No span reference needed.</div>
+          <div class="mc-when">Use for: scores computed inside @observe functions where you don't hold the span object</div>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>Method</th><th>Requires trace_id?</th><th>Inside @observe?</th><th>Async-safe?</th></tr></thead>
+        <tbody>
+          <tr><td><strong>create_score()</strong></td><td>✓ Yes — pass explicitly</td><td>Any time</td><td>✓ Yes</td></tr>
+          <tr><td><strong>span.score()</strong></td><td>Auto from span</td><td>Hold span ref</td><td>✓ Yes</td></tr>
+          <tr><td><strong>score_current_span/trace()</strong></td><td>Auto from context</td><td>Must be inside with/observe</td><td>✓ Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 3: Numeric -->
+  <div class="step" id="s3">
+    <div class="shdr">
+      <div class="snum">3</div>
+      <div>
+        <div class="stitle">Numeric scores</div>
+        <div class="ssub">01_numeric_scores.py — quality floats on traces</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Numeric scores are the most flexible type. You compute a float and attach it to a trace or observation. Common examples: response length, readability, similarity to a reference answer.</p>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day2/01_numeric_scores.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+
+<span class="kw">def</span> <span class="fn">compute_length_score</span>(text: str, target_words: int = <span class="nu">100</span>) -> float:
+    <span class="cm">"""Score 0-1: how close the response length is to the target."""</span>
+    word_count = <span class="fn">len</span>(text.<span class="fn">split</span>())
+    ratio = word_count / target_words
+    <span class="cm"># Perfect score at target, decreases for too short or too long</span>
+    <span class="kw">return</span> <span class="fn">round</span>(<span class="fn">max</span>(<span class="nu">0.0</span>, <span class="nu">1.0</span> - <span class="fn">abs</span>(<span class="nu">1.0</span> - ratio)), <span class="nu">3</span>)
+
+
+<span class="kw">def</span> <span class="fn">compute_structure_score</span>(text: str) -> float:
+    <span class="cm">"""Score 0-1: does the response use structured formatting?"""</span>
+    indicators = [<span class="st">"1."</span>, <span class="st">"2."</span>, <span class="st">"•"</span>, <span class="st">"-"</span>, <span class="st">"\n"</span>, <span class="st">"first"</span>, <span class="st">"second"</span>]
+    hits = <span class="fn">sum</span>(<span class="nu">1</span> <span class="kw">for</span> i <span class="kw">in</span> indicators <span class="kw">if</span> i <span class="kw">in</span> text.lower())
+    <span class="kw">return</span> <span class="fn">round</span>(<span class="fn">min</span>(<span class="nu">1.0</span>, hits / <span class="nu">3</span>), <span class="nu">3</span>)
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-answer-scored"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">ask_and_score</span>(question: str) -> str:
+    system = <span class="st">"You are a QA Architect. Answer in structured bullet points, 80-120 words."</span>
+
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(output=answer,
+        usage={"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens})
+
+    <span class="cm"># ── METHOD 3: score_current_span/trace inside @observe ───────</span>
+
+    <span class="cm"># Score the generation (observation-level)</span>
+    langfuse.<span class="fn">score_current_span</span>(
+        name=<span class="st">"response_length"</span>,
+        value=<span class="fn">compute_length_score</span>(answer, target_words=<span class="nu">100</span>),
+        data_type=<span class="st">"NUMERIC"</span>,
+        comment=<span class="st">f"{len(answer.split())} words (target: 100)"</span>,
+    )
+
+    <span class="cm"># Score the overall trace</span>
+    langfuse.<span class="fn">score_current_trace</span>(
+        name=<span class="st">"structure_score"</span>,
+        value=<span class="fn">compute_structure_score</span>(answer),
+        data_type=<span class="st">"NUMERIC"</span>,
+        comment=<span class="st">"Measures use of numbered lists, bullets, sections"</span>,
+    )
+
+    <span class="kw">return</span> answer
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    questions = [
+        <span class="st">"What is regression testing?"</span>,
+        <span class="st">"Describe the test pyramid."</span>,
+        <span class="st">"What makes a good test case?"</span>,
+    ]
+
+    <span class="kw">for</span> q <span class="kw">in</span> questions:
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">"Numeric-scored QA"</span>,
+            user_id=<span class="st">"user-123"</span>,
+            tags=[<span class="st">"scoring"</span>, <span class="st">"numeric"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"tutorial"</span>: <span class="st">"day2-hour2"</span>},
+        ):
+            answer = <span class="fn">ask_and_score</span>(q)
+            <span class="fn">print</span>(<span class="st">f"Q: {q}"</span>)
+            <span class="fn">print</span>(<span class="st">f"A: {answer[:100]}...\n"</span>)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">"✓ Check Langfuse → Traces — each trace has 'response_length' and 'structure_score'"</span>)
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 01_numeric_scores.py</code></pre>
+      </div>
+
+      <div class="success">
+        <strong>In the dashboard:</strong> Click any trace. You'll see a <strong>Scores</strong> panel showing two bars — <code class="il">response_length</code> on the generation span and <code class="il">structure_score</code> on the trace. In the Traces list view, these scores appear as columns you can sort and filter by. Try filtering traces where <code class="il">structure_score &lt; 0.5</code>.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 4: Boolean / thumbs -->
+  <div class="step" id="s4">
+    <div class="shdr">
+      <div class="snum">4</div>
+      <div>
+        <div class="stitle">Boolean scores — thumbs up/down</div>
+        <div class="ssub">02_user_feedback.py — the most common feedback pattern</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Boolean scores (value <code class="il">0</code> or <code class="il">1</code>) are the standard pattern for user feedback widgets — the thumbs up/down you see in almost every chat interface. The critical detail: <strong>value must be a float 0 or 1, not Python's True/False</strong>.</p>
+
+      <div class="warn">
+        <strong>v4 gotcha:</strong> <code class="il">data_type="BOOLEAN"</code> is <em>required</em> — otherwise Langfuse infers <code class="il">value=0</code> or <code class="il">value=1</code> as NUMERIC. You must pass the data_type explicitly for boolean scores.
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day2/02_user_feedback.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-response"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">get_answer</span>(question: str) -> <span class="fn">tuple</span>[str, str]:
+    <span class="cm">"""Returns (answer, trace_id) so we can score async after user sees it."""</span>
+    system = <span class="st">"You are a QA Architect. Be concise."</span>
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+    )
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(output=answer,
+        usage={"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens})
+    <span class="kw">return</span> answer
+
+
+<span class="kw">def</span> <span class="fn">submit_user_feedback</span>(trace_id: str, thumbs_up: bool, comment: str = <span class="st">""</span>):
+    <span class="cm">"""
+    Called AFTER the user sees the response and clicks thumbs up/down.
+    This is METHOD 1: create_score() with explicit trace_id.
+    Runs outside the original span context — perfectly valid.
+    """</span>
+    langfuse.<span class="fn">create_score</span>(
+        name=<span class="st">"user_feedback"</span>,
+        value=<span class="nu">1</span> <span class="kw">if</span> thumbs_up <span class="kw">else</span> <span class="nu">0</span>,   <span class="cm"># ← float 0 or 1, NOT True/False</span>
+        data_type=<span class="st">"BOOLEAN"</span>,              <span class="cm"># ← required for boolean</span>
+        trace_id=trace_id,
+        comment=comment <span class="kw">if</span> comment <span class="kw">else</span> <span class="kw">None</span>,
+    )
+    emoji = <span class="st">"👍"</span> <span class="kw">if</span> thumbs_up <span class="kw">else</span> <span class="st">"👎"</span>
+    <span class="fn">print</span>(<span class="st">f"  {emoji} Feedback recorded for trace {trace_id[:12]}..."</span>)
+
+
+<span class="kw">def</span> <span class="fn">interactive_feedback_session</span>():
+    <span class="cm">"""
+    Simulate a real chatbot UI:
+    1. User asks a question
+    2. Bot answers
+    3. User gives thumbs up/down
+    4. Score is recorded against the trace
+    """</span>
+    session_id = <span class="st">f"feedback-{uuid.uuid4().hex[:8]}"</span>
+    <span class="fn">print</span>(<span class="st">f"\n🤖 QA Architect — Feedback Demo"</span>)
+    <span class="fn">print</span>(<span class="st">f"   Session: {session_id}"</span>)
+    <span class="fn">print</span>(<span class="st">f"   After each answer, rate with 👍 (y) or 👎 (n)"</span>)
+    <span class="fn">print</span>(<span class="st">f"   Type 'quit' to exit\n"</span>)
+
+    <span class="kw">while</span> <span class="ty">True</span>:
+        question = <span class="fn">input</span>(<span class="st">"You: "</span>).<span class="fn">strip</span>()
+        <span class="kw">if</span> question.lower() <span class="kw">in</span> (<span class="st">"quit"</span>, <span class="st">"q"</span>):
+            <span class="kw">break</span>
+        <span class="kw">if</span> <span class="kw">not</span> question:
+            <span class="kw">continue</span>
+
+        <span class="cm"># Capture the trace_id so we can score it after user sees the answer</span>
+        trace_id = <span class="kw">None</span>
+
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Feedback: {question[:40]}"</span>,
+            session_id=session_id,
+            user_id=<span class="st">"user-123"</span>,
+            tags=[<span class="st">"feedback-demo"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"tutorial"</span>: <span class="st">"day2-hour2"</span>},
+        ):
+            answer = <span class="fn">get_answer</span>(question)
+            <span class="cm"># Get the current trace ID while still inside propagate_attributes</span>
+            trace_id = langfuse.<span class="fn">get_current_trace_id</span>()
+
+        <span class="fn">print</span>(<span class="st">f"\nQA Architect: {answer}\n"</span>)
+
+        <span class="cm"># Ask for feedback OUTSIDE the trace context (realistic — async)</span>
+        rating = <span class="fn">input</span>(<span class="st">"Was this helpful? (y/n/skip): "</span>).<span class="fn">strip</span>().lower()
+        <span class="kw">if</span> rating <span class="kw">in</span> (<span class="st">"y"</span>, <span class="st">"n"</span>) <span class="kw">and</span> trace_id:
+            comment = <span class="fn">input</span>(<span class="st">"Optional comment (or Enter to skip): "</span>).<span class="fn">strip</span>()
+            <span class="fn">submit_user_feedback</span>(
+                trace_id=trace_id,
+                thumbs_up=(rating == <span class="st">"y"</span>),
+                comment=comment,
+            )
+        <span class="fn">print</span>()
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">f"\n✓ Session complete. Check Sessions → {session_id}"</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    <span class="fn">interactive_feedback_session</span>()
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 02_user_feedback.py
+
+<span class="bc"># Ask 3-4 questions and give mixed feedback (y and n)</span>
+<span class="bc"># Then check Langfuse: Traces → filter by score "user_feedback"</span>
+<span class="bc"># Thumbs-down traces are your highest-priority items to fix</span></code></pre>
+      </div>
+
+      <div class="success">
+        <strong>Key pattern:</strong> <code class="il">langfuse.get_current_trace_id()</code> is called <em>inside</em> the <code class="il">propagate_attributes</code> block to capture the ID, then <code class="il">create_score()</code> is called <em>outside</em> — after the user sees the response and provides feedback. This is the exact pattern real chat apps use.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 5: Categorical -->
+  <div class="step" id="s5">
+    <div class="shdr">
+      <div class="snum">5</div>
+      <div>
+        <div class="stitle">Categorical scores</div>
+        <div class="ssub">03_categorical_scores.py — quality tiers and labels</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Categorical scores assign discrete labels to traces. They're ideal when you want named quality tiers (excellent/good/poor) or classification labels (on-topic/off-topic, safe/unsafe). Values must be strings.</p>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day2/03_categorical_scores.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+<span class="cm"># Category definitions — deterministic rules (no LLM needed)</span>
+<span class="kw">def</span> <span class="fn">classify_response_quality</span>(answer: str) -> str:
+    <span class="cm">"""Simple heuristic quality classification."""</span>
+    words = <span class="fn">len</span>(answer.<span class="fn">split</span>())
+    has_structure = <span class="fn">any</span>(c <span class="kw">in</span> answer <span class="kw">for</span> c <span class="kw">in</span> [<span class="st">"1."</span>, <span class="st">"•"</span>, <span class="st">"\n-"</span>, <span class="st">"First"</span>])
+    has_example   = <span class="fn">any</span>(w <span class="kw">in</span> answer.lower() <span class="kw">for</span> w <span class="kw">in</span> [<span class="st">"example"</span>, <span class="st">"e.g."</span>, <span class="st">"for instance"</span>])
+
+    <span class="kw">if</span> words >= <span class="nu">60</span> <span class="kw">and</span> has_structure <span class="kw">and</span> has_example:
+        <span class="kw">return</span> <span class="st">"excellent"</span>
+    <span class="kw">elif</span> words >= <span class="nu">30</span> <span class="kw">and</span> (has_structure <span class="kw">or</span> has_example):
+        <span class="kw">return</span> <span class="st">"good"</span>
+    <span class="kw">elif</span> words >= <span class="nu">15</span>:
+        <span class="kw">return</span> <span class="st">"acceptable"</span>
+    <span class="kw">else</span>:
+        <span class="kw">return</span> <span class="st">"poor"</span>
+
+
+<span class="kw">def</span> <span class="fn">classify_topic</span>(question: str) -> str:
+    <span class="cm">"""Classify the QA topic for routing/analytics."""</span>
+    q = question.lower()
+    <span class="kw">if</span> <span class="fn">any</span>(w <span class="kw">in</span> q <span class="kw">for</span> w <span class="kw">in</span> [<span class="st">"regression"</span>, <span class="st">"smoke"</span>, <span class="st">"sanity"</span>, <span class="st">"test type"</span>]):
+        <span class="kw">return</span> <span class="st">"test-types"</span>
+    <span class="kw">elif</span> <span class="fn">any</span>(w <span class="kw">in</span> q <span class="kw">for</span> w <span class="kw">in</span> [<span class="st">"automation"</span>, <span class="st">"selenium"</span>, <span class="st">"pytest"</span>, <span class="st">"framework"</span>]):
+        <span class="kw">return</span> <span class="st">"automation"</span>
+    <span class="kw">elif</span> <span class="fn">any</span>(w <span class="kw">in</span> q <span class="kw">for</span> w <span class="kw">in</span> [<span class="st">"agile"</span>, <span class="st">"sprint"</span>, <span class="st">"scrum"</span>, <span class="st">"kanban"</span>]):
+        <span class="kw">return</span> <span class="st">"agile-qa"</span>
+    <span class="kw">elif</span> <span class="fn">any</span>(w <span class="kw">in</span> q <span class="kw">for</span> w <span class="kw">in</span> [<span class="st">"performance"</span>, <span class="st">"load"</span>, <span class="st">"stress"</span>]):
+        <span class="kw">return</span> <span class="st">"performance"</span>
+    <span class="kw">else</span>:
+        <span class="kw">return</span> <span class="st">"general"</span>
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-classified"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">answer_and_classify</span>(question: str) -> str:
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a QA Architect. Give structured answers with examples."</span>},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+        output=answer,
+        usage={"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens},
+    )
+
+    quality  = <span class="fn">classify_response_quality</span>(answer)
+    topic    = <span class="fn">classify_topic</span>(question)
+
+    <span class="cm"># Categorical score on the generation (observation-level)</span>
+    langfuse.<span class="fn">score_current_span</span>(
+        name=<span class="st">"response_quality"</span>,
+        value=quality,           <span class="cm"># ← string value e.g. "excellent"</span>
+        data_type=<span class="st">"CATEGORICAL"</span>,
+        comment=<span class="st">f"words={len(answer.split())}"</span>,
+    )
+
+    <span class="cm"># Categorical score on the trace (trace-level)</span>
+    langfuse.<span class="fn">score_current_trace</span>(
+        name=<span class="st">"question_topic"</span>,
+        value=topic,             <span class="cm"># ← string value e.g. "test-types"</span>
+        data_type=<span class="st">"CATEGORICAL"</span>,
+    )
+
+    <span class="fn">print</span>(<span class="st">f"  Quality: {quality} | Topic: {topic}"</span>)
+    <span class="kw">return</span> answer
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    questions = [
+        <span class="st">"What is regression testing and how often should you run it?"</span>,
+        <span class="st">"How do you integrate automated tests into a CI/CD pipeline?"</span>,
+        <span class="st">"How should a QA team work in an Agile sprint?"</span>,
+        <span class="st">"What is performance testing?"</span>,
+        <span class="st">"Hi"</span>,   <span class="cm"># ← short answer — expect "poor" quality score</span>
+    ]
+
+    <span class="kw">for</span> q <span class="kw">in</span> questions:
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Classified: {q[:35]}"</span>,
+            user_id=<span class="st">"user-123"</span>,
+            tags=[<span class="st">"categorical"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"tutorial"</span>: <span class="st">"day2-hour2"</span>},
+        ):
+            answer = <span class="fn">answer_and_classify</span>(q)
+            <span class="fn">print</span>(<span class="st">f"Q: {q[:60]}"</span>)
+            <span class="fn">print</span>(<span class="st">f"A: {answer[:80]}...\n"</span>)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">"✓ In Langfuse → Traces, filter by 'response_quality = poor' to find bad responses"</span>)
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 03_categorical_scores.py</code></pre>
+      </div>
+
+      <div class="blue">
+        <strong>Dashboard power move:</strong> Go to Traces → Show Filters → Add filter → <code class="il">response_quality = poor</code>. You'll see only the "Hi" trace. This is how a QA team builds a review queue — filter by low quality scores and triage automatically.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 6: Observation-level -->
+  <div class="step" id="s6">
+    <div class="shdr">
+      <div class="snum">6</div>
+      <div>
+        <div class="stitle">Observation-level scores</div>
+        <div class="ssub">scoring a specific span, not just the trace</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Sometimes you want to score a specific <em>step</em> inside a trace — not the whole thing. For example: score the retrieval span on how relevant the docs were, independently of the LLM answer quality.</p>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> observation_scoring pattern</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="cm"># METHOD 1: create_score with both trace_id AND observation_id</span>
+<span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+    as_type=<span class="st">"span"</span>, name=<span class="st">"retrieval"</span>
+) <span class="kw">as</span> retrieval_span:
+
+    docs = <span class="fn">do_retrieval</span>(query)
+
+    <span class="cm"># Score the retrieval span directly via span.score()</span>
+    retrieval_span.<span class="fn">score</span>(
+        name=<span class="st">"retrieval_relevance"</span>,
+        value=<span class="fn">compute_relevance</span>(docs, query),
+        data_type=<span class="st">"NUMERIC"</span>,
+        comment=<span class="st">f"{len(docs)} chunks retrieved"</span>,
+    )
+
+    <span class="cm"># Also score the parent trace from within the span</span>
+    retrieval_span.<span class="fn">score_trace</span>(
+        name=<span class="st">"retrieval_succeeded"</span>,
+        value=<span class="nu">1</span> <span class="kw">if</span> docs <span class="kw">else</span> <span class="nu">0</span>,
+        data_type=<span class="st">"BOOLEAN"</span>,
+    )
+
+
+<span class="cm"># METHOD 1 (explicit): pass observation_id to create_score()
+# Useful when scoring AFTER the span has closed</span>
+langfuse.<span class="fn">create_score</span>(
+    name=<span class="st">"retrieval_relevance"</span>,
+    value=<span class="nu">0.72</span>,
+    data_type=<span class="st">"NUMERIC"</span>,
+    trace_id=the_trace_id,
+    observation_id=retrieval_span.id,  <span class="cm"># pins score to that specific span</span>
+    comment=<span class="st">"Post-hoc relevance score"</span>,
+)
+</code></pre>
+      </div>
+
+      <div class="purple">
+        <strong>When observation_id matters:</strong> In a trace with 10 spans, all scores without <code class="il">observation_id</code> appear on the trace root. If you want to see which retrieval call was weak (not which overall trace was weak), always pass <code class="il">observation_id</code>. In the UI, these scores appear on the individual span card in the timeline, not just the trace header.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 7: Async feedback -->
+  <div class="step" id="s7">
+    <div class="shdr">
+      <div class="snum">7</div>
+      <div>
+        <div class="stitle">Async user feedback — the real-world pattern</div>
+        <div class="ssub">score arrives minutes after the trace closes</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>In production, user feedback never arrives instantly. A user reads the answer, thinks about it, then maybe clicks 👎 three minutes later. The trace is long since closed. This is the most important pattern to understand.</p>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> async feedback endpoint pattern</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="cm"># Simulates a FastAPI endpoint that receives user feedback
+# The trace was created minutes ago in a different request
+
+# In your LLM endpoint: generate answer AND return trace_id to client</span>
+<span class="kw">def</span> <span class="fn">answer_question</span>(question: str) -> dict:
+    trace_id = <span class="kw">None</span>
+
+    <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+        trace_name=<span class="st">"user-query"</span>,
+        user_id=<span class="st">"user-123"</span>,
+    ):
+        answer = <span class="fn">call_llm</span>(question)
+        trace_id = langfuse.<span class="fn">get_current_trace_id</span>()
+
+    langfuse.<span class="fn">flush</span>()   <span class="cm"># ensure trace is sent before returning</span>
+
+    <span class="cm"># Return BOTH the answer and the trace_id to the frontend</span>
+    <span class="kw">return</span> {<span class="st">"answer"</span>: answer, <span class="st">"trace_id"</span>: trace_id}
+
+
+<span class="cm"># In your feedback endpoint: user clicks 👎 on the frontend
+# Frontend sends back the trace_id it received with the answer</span>
+<span class="kw">def</span> <span class="fn">receive_feedback</span>(trace_id: str, helpful: bool, comment: str = <span class="st">""</span>):
+    langfuse.<span class="fn">create_score</span>(
+        name=<span class="st">"user_feedback"</span>,
+        value=<span class="nu">1</span> <span class="kw">if</span> helpful <span class="kw">else</span> <span class="nu">0</span>,
+        data_type=<span class="st">"BOOLEAN"</span>,
+        trace_id=trace_id,   <span class="cm"># ← links to the existing trace</span>
+        comment=comment or <span class="kw">None</span>,
+    )
+    langfuse.<span class="fn">flush</span>()
+
+<span class="cm"># ✅ Langfuse accepts scores for traces that were created in the past.
+# The score will appear on the trace even if hours have passed.</span>
+</code></pre>
+      </div>
+
+      <div class="insight">
+        <strong>Frontend integration tip:</strong> In a React/Vue frontend, store the <code class="il">trace_id</code> in local state alongside the answer. When the user clicks 👍/👎, POST to your backend with <code class="il">{"trace_id": "...", "helpful": true}</code>. Your backend calls <code class="il">langfuse.create_score()</code>. The Langfuse dashboard immediately reflects the feedback — no polling needed.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 8: Score configs -->
+  <div class="step" id="s8">
+    <div class="shdr">
+      <div class="snum">8</div>
+      <div>
+        <div class="stitle">Score configs — enforce schema on scores</div>
+        <div class="ssub">define valid ranges & categories in the UI</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Score configs define what's valid for a given score name. Without a config, any float is accepted for NUMERIC and any string for CATEGORICAL. With a config, Langfuse validates values and enables the annotation UI for human reviewers.</p>
+
+      <table>
+        <thead><tr><th>Config field</th><th>NUMERIC</th><th>CATEGORICAL</th><th>BOOLEAN</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Range validation</strong></td>
+            <td>min / max (e.g. 0–1 for normalised scores)</td>
+            <td>N/A</td>
+            <td>Always 0 or 1</td>
+          </tr>
+          <tr>
+            <td><strong>Categories</strong></td>
+            <td>N/A</td>
+            <td>Exact strings (e.g. "excellent", "good", "poor")</td>
+            <td>N/A</td>
+          </tr>
+          <tr>
+            <td><strong>Enables UI annotation</strong></td>
+            <td>✓ Yes — slider in UI</td>
+            <td>✓ Yes — dropdown in UI</td>
+            <td>✓ Yes — toggle in UI</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Create configs <strong>in the Langfuse UI</strong>: Settings → Scores → Create Score Config. For now, just know they exist — you'll use them heavily in Hour 3 when setting up LLM-as-a-judge evaluators.</p>
+
+      <div class="warn">
+        <strong>Categorical scores without a config:</strong> Any string is accepted — even typos. A config enforces the valid set (e.g. only "excellent", "good", "acceptable", "poor"). If you're building a team annotation workflow, always create a config first.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 9: Mini-project -->
+  <div class="step" id="s9">
+    <div class="shdr">
+      <div class="snum">9</div>
+      <div>
+        <div class="stitle">Hour 2 mini-project: scored feedback chatbot</div>
+        <div class="ssub">04_scored_chatbot.py — all score types in one chatbot</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Combine everything: the Day 2 H1 prompt-managed chatbot now gets automatic quality scores on every response, and asks the user for a thumbs up/down after each answer. Low-quality traces get flagged in the dashboard automatically.</p>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day2/04_scored_chatbot.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+FALLBACK  = <span class="st">"You are an experienced QA Architect. Provide practical advice."</span>
+
+
+<span class="cm"># ── Scoring helpers ──────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">_length_score</span>(text: str) -> float:
+    words = <span class="fn">len</span>(text.<span class="fn">split</span>())
+    <span class="kw">return</span> <span class="fn">round</span>(<span class="fn">max</span>(<span class="nu">0.0</span>, <span class="nu">1.0</span> - <span class="fn">abs</span>(<span class="nu">1.0</span> - words / <span class="nu">80</span>)), <span class="nu">3</span>)
+
+<span class="kw">def</span> <span class="fn">_quality_tier</span>(text: str) -> str:
+    words = <span class="fn">len</span>(text.<span class="fn">split</span>())
+    structured = <span class="fn">any</span>(c <span class="kw">in</span> text <span class="kw">for</span> c <span class="kw">in</span> [<span class="st">"1."</span>, <span class="st">"•"</span>, <span class="st">"- "</span>, <span class="st">"\n\n"</span>])
+    has_example = <span class="st">"example"</span> <span class="kw">in</span> text.lower() <span class="kw">or</span> <span class="st">"e.g."</span> <span class="kw">in</span> text.lower()
+    <span class="kw">if</span>   words >= <span class="nu">60</span> <span class="kw">and</span> structured <span class="kw">and</span> has_example: <span class="kw">return</span> <span class="st">"excellent"</span>
+    <span class="kw">elif</span> words >= <span class="nu">30</span> <span class="kw">and</span> (structured <span class="kw">or</span> has_example):   <span class="kw">return</span> <span class="st">"good"</span>
+    <span class="kw">elif</span> words >= <span class="nu">10</span>:                                      <span class="kw">return</span> <span class="st">"acceptable"</span>
+    <span class="kw">else</span>:                                                   <span class="kw">return</span> <span class="st">"poor"</span>
+
+
+<span class="at">@observe</span>(name=<span class="st">"llm-call"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">call_llm</span>(messages: list, prompt_obj, turn: int) -> str:
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=messages, prompt=prompt_obj,
+        metadata={<span class="st">"turn"</span>: <span class="fn">str</span>(turn)},
+    )
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=messages,
+    )
+    reply = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(
+        output=reply,
+        usage={"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens},
+    )
+
+    <span class="cm"># Auto-score the generation immediately after the LLM call</span>
+    langfuse.<span class="fn">score_current_span</span>(
+        name=<span class="st">"response_length_score"</span>,
+        value=<span class="fn">_length_score</span>(reply),
+        data_type=<span class="st">"NUMERIC"</span>,
+        comment=<span class="st">f"{len(reply.split())} words"</span>,
+    )
+    langfuse.<span class="fn">score_current_trace</span>(
+        name=<span class="st">"auto_quality"</span>,
+        value=<span class="fn">_quality_tier</span>(reply),
+        data_type=<span class="st">"CATEGORICAL"</span>,
+    )
+    <span class="kw">return</span> reply
+
+
+<span class="at">@observe</span>(name=<span class="st">"chat-turn"</span>)
+<span class="kw">def</span> <span class="fn">process_turn</span>(messages: list, prompt_obj, turn: int) -> str:
+    <span class="kw">return</span> <span class="fn">call_llm</span>(messages, prompt_obj, turn)
+
+
+<span class="kw">class</span> <span class="ty">ScoredChatbot</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, user_id=<span class="st">"user-123"</span>):
+        self.user_id    = user_id
+        self.session_id = <span class="st">f"scored-{uuid.uuid4().hex[:8]}"</span>
+        self.turn       = <span class="nu">0</span>
+
+        <span class="kw">try</span>:
+            self.prompt_obj = langfuse.<span class="fn">get_prompt</span>(
+                <span class="st">"qa-architect-system"</span>, cache_ttl_seconds=<span class="nu">300</span>, fallback=FALLBACK
+            )
+            system = self.prompt_obj.<span class="fn">compile</span>(
+                experience_years=<span class="st">"20"</span>,
+                specialisation=<span class="st">"quality strategy"</span>,
+                style=<span class="st">"concise with examples"</span>,
+            )
+        <span class="kw">except</span>:
+            self.prompt_obj, system = <span class="kw">None</span>, FALLBACK
+
+        self.history = [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system}]
+        v = <span class="fn">getattr</span>(self.prompt_obj, <span class="st">"version"</span>, <span class="st">"fallback"</span>)
+        <span class="fn">print</span>(<span class="st">f"\n{'='*52}\n  Scored QA Chatbot — Prompt v{v} · Session {self.session_id}\n  y=👍  n=👎  skip=no rating  quit=exit\n{'='*52}\n"</span>)
+
+    <span class="kw">def</span> <span class="fn">chat</span>(self, user_input: str) -> <span class="fn">tuple</span>[str, str]:
+        self.turn += <span class="nu">1</span>
+        self.history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_input})
+
+        trace_id = <span class="kw">None</span>
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Turn {self.turn}: {user_input[:40]}"</span>,
+            session_id=self.session_id, user_id=self.user_id,
+            tags=[<span class="st">"scored"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"turn"</span>: <span class="fn">str</span>(self.turn)},
+        ):
+            reply    = <span class="fn">process_turn</span>(self.history, self.prompt_obj, self.turn)
+            trace_id = langfuse.<span class="fn">get_current_trace_id</span>()
+
+        self.history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: reply})
+        <span class="kw">return</span> reply, trace_id
+
+    <span class="kw">def</span> <span class="fn">record_feedback</span>(self, trace_id: str, helpful: bool, comment: str = <span class="st">""</span>):
+        langfuse.<span class="fn">create_score</span>(
+            name=<span class="st">"user_feedback"</span>,
+            value=<span class="nu">1</span> <span class="kw">if</span> helpful <span class="kw">else</span> <span class="nu">0</span>,
+            data_type=<span class="st">"BOOLEAN"</span>,
+            trace_id=trace_id,
+            comment=comment <span class="kw">or</span> <span class="kw">None</span>,
+        )
+
+    <span class="kw">def</span> <span class="fn">end</span>(self):
+        langfuse.<span class="fn">flush</span>()
+        <span class="fn">print</span>(<span class="st">f"\n✓ {self.turn} turns. Session: {self.session_id}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Dashboard → Sessions → filter scores: auto_quality='poor' | user_feedback=false"</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    bot = <span class="fn">ScoredChatbot</span>(user_id=<span class="st">"user-123"</span>)
+    <span class="kw">while</span> <span class="ty">True</span>:
+        q = <span class="fn">input</span>(<span class="st">"You: "</span>).<span class="fn">strip</span>()
+        <span class="kw">if</span> q.lower() <span class="kw">in</span> (<span class="st">"quit"</span>, <span class="st">"q"</span>): <span class="kw">break</span>
+        <span class="kw">if</span> <span class="kw">not</span> q: <span class="kw">continue</span>
+
+        reply, trace_id = bot.<span class="fn">chat</span>(q)
+        <span class="fn">print</span>(<span class="st">f"\nQA Architect: {reply}\n"</span>)
+
+        rating = <span class="fn">input</span>(<span class="st">"Helpful? (y/n/skip): "</span>).<span class="fn">strip</span>().lower()
+        <span class="kw">if</span> rating <span class="kw">in</span> (<span class="st">"y"</span>, <span class="st">"n"</span>) <span class="kw">and</span> trace_id:
+            comment = <span class="fn">input</span>(<span class="st">"Comment (Enter to skip): "</span>).<span class="fn">strip</span>()
+            bot.<span class="fn">record_feedback</span>(trace_id, rating == <span class="st">"y"</span>, comment)
+            <span class="fn">print</span>(<span class="st">f"  {'👍' if rating == 'y' else '👎'} recorded\n"</span>)
+
+    bot.<span class="fn">end</span>()
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run the capstone</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 04_scored_chatbot.py</code></pre>
+      </div>
+
+      <div class="success">
+        <strong>What every trace now carries:</strong>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:10px;line-height:2;color:var(--text);">
+          Turn N (TRACE) → auto_quality: "excellent"|"good"|"poor" + user_feedback: true|false<br>
+          &nbsp;&nbsp;└─ chat-turn (SPAN)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ llm-call (GENERATION) → response_length_score: 0.0–1.0<br>
+        </div>
+        <div style="margin-top:10px;">In Langfuse Dashboard → Traces — try filtering: <code class="il">auto_quality = poor</code> OR <code class="il">user_feedback = false</code>. These are your broken responses that need prompt iteration or escalation to a human reviewer.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- CHECKPOINT -->
+  <div class="checkpoint">
+    <div class="cp-title">✓ Hour 2 checkpoint</div>
+    <div class="cp-grid">
+      <div class="cp-item"><span class="cp-icon">✓</span> Know all 4 score types and when to use each</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Used all 3 scoring methods (create_score, span.score, score_current_*)</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Numeric scores on generations</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Boolean thumbs up/down with get_current_trace_id()</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Categorical quality tiers + topic classification</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Observation-level vs trace-level scoring</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Async feedback pattern (score after trace closes)</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Built a fully scored, feedback-aware chatbot</div>
+    </div>
+  </div>
+
+  <!-- EXERCISE -->
+  <div class="exercise">
+    <div class="ex-hdr">
+      <span class="ex-badge">MINI EXERCISE</span>
+      <span class="ex-title">Build a feedback review queue</span>
+    </div>
+    <div class="ex-body">
+      <p>Run these before Hour 3 to build real intuition for how scores drive quality workflows:</p>
+      <ul>
+        <li><strong>Exercise 1 — Generate mixed data:</strong> Run <code class="il">04_scored_chatbot.py</code> with 6+ questions. Give thumbs up to some, thumbs down to others. In Langfuse, use the Scores tab (left sidebar) to see all scores as a list. Sort by <code class="il">user_feedback</code> ascending to find your thumbs-down traces.</li>
+        <li><strong>Exercise 2 — Text score for reviewer notes:</strong> In <code class="il">02_user_feedback.py</code>, add a fourth score type: after the user gives thumbs down (<code class="il">rating == "n"</code>), prompt for a reason and store it as <code class="il">data_type="TEXT"</code> score named <code class="il">reviewer_note</code>. Text scores show as a comment bubble on the trace card.</li>
+        <li><strong>Exercise 3 — Dashboard filter chain:</strong> In Langfuse Traces view, build this filter: <code class="il">auto_quality = poor AND user_feedback = false</code>. This is your "most broken responses" queue — the traces where both automated quality AND user agree the answer was bad. These are your highest-priority items for prompt iteration in Day 2 Hour 3.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- NEXT -->
+  <div class="next">
+    <div>
+      <div class="nl">Up next — Day 2 · Hour 3</div>
+      <div class="nt">LLM-as-a-judge evaluators</div>
+      <div class="nd">Configure automated evaluators that run on every new trace — hallucination detection, answer completeness, and a custom code evaluator for deterministic checks. No tokens needed for code evaluators.</div>
+    </div>
+    <div class="na">→</div>
+  </div>
+
+</main>
+</div>
+
+<script>
+function copyCode(btn){
+  const pre=btn.closest('.cb').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(()=>{
+    btn.textContent='copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},1800);
+  });
+}
+const sections=document.querySelectorAll('.step[id]');
+const items=document.querySelectorAll('.sbi[href^="#"]');
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      items.forEach(a=>a.classList.remove('active'));
+      const a=document.querySelector(`.sbi[href="#${e.target.id}"]`);
+      if(a)a.classList.add('active');
+    }
+  });
+},{rootMargin:'-20% 0% -60% 0%'});
+sections.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

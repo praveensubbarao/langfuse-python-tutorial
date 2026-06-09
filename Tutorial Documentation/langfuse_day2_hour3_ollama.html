@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse · Day 2 · Hour 3 · LLM-as-a-Judge</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f14;--surface:#13161e;--surface2:#1a1e28;--border:#252a38;--border2:#2e3548;--text:#e8eaf0;--muted:#6b7394;--dim:#3d4460;--accent:#7c9eff;--accent2:#a78bfa;--accent3:#34d399;--accent4:#fb923c;--accent5:#f472b6;--accent6:#facc15;--code-bg:#0a0c12;--hl:#1e2235;}
+*{margin:0;padding:0;box-sizing:border-box;}body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;font-size:16px;}
+header{border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;background:rgba(13,15,20,.95);backdrop-filter:blur(14px);z-index:100;display:flex;align-items:center;justify-content:space-between;height:56px;}
+.logo-pill{background:linear-gradient(135deg,#34d399,#7c9eff);color:#000;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;}
+.hh{display:flex;align-items:center;gap:12px;}.ht{font-size:13px;color:var(--muted);}
+.chips{display:flex;gap:6px;}.chip{font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+.chip.done{border-color:var(--accent3);color:var(--accent3);background:rgba(52,211,153,.07);}
+.chip.active{border-color:var(--accent3);color:var(--accent3);background:rgba(52,211,153,.08);}
+.layout{display:flex;min-height:calc(100vh - 56px);}
+aside{width:245px;flex-shrink:0;border-right:1px solid var(--border);padding:2rem 0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;}
+.sbs{padding:0 1.25rem;margin-bottom:1.5rem;}.sbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:.75rem;}
+.sbi{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:2px;transition:all .15s;}
+.sbi:hover{background:var(--surface2);color:var(--text);}.sbi.active{background:var(--hl);color:var(--accent3);}
+.dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;flex-shrink:0;}
+.dot.done{background:rgba(52,211,153,.15);color:var(--accent3);}.dot.cur{background:rgba(52,211,153,.2);color:var(--accent3);}.dot.todo{background:var(--surface2);color:var(--dim);}
+main{flex:1;padding:3rem 3.5rem;max-width:900px;}
+.hero{margin-bottom:3rem;padding-bottom:2.5rem;border-bottom:1px solid var(--border);}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+.eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent3);}
+.hero h1{font-family:'Fraunces',serif;font-size:2.6rem;font-weight:300;line-height:1.15;color:var(--text);margin-bottom:1rem;}
+.hero h1 em{font-style:italic;color:var(--accent3);}
+.hero-sub{font-size:15px;color:var(--muted);max-width:580px;line-height:1.7;}
+.hero-meta{display:flex;gap:1.5rem;margin-top:1.5rem;flex-wrap:wrap;}
+.mb{display:flex;align-items:center;gap:6px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--muted);}
+.md{width:6px;height:6px;border-radius:50%;background:var(--accent3);}
+.step{margin-bottom:3rem;}.shdr{display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;}
+.snum{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent3),var(--accent));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#000;flex-shrink:0;}
+.stitle{font-family:'Fraunces',serif;font-size:1.3rem;font-weight:500;color:var(--text);line-height:1.2;}
+.ssub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.sbody{padding-left:50px;}p{margin-bottom:1rem;color:var(--muted);font-size:15px;}p strong{color:var(--text);font-weight:500;}
+.cb{background:var(--code-bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin:1.25rem 0;}
+.ch{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;}
+.cf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.lt{font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:700;}
+.lb{background:#0f2018;color:#34d399;}.lp{background:#1a2540;color:#7c9eff;}.ly{background:#1c1805;color:#facc15;}
+.copy{background:none;border:1px solid var(--border2);color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:5px;cursor:pointer;transition:all .15s;}
+.copy:hover{background:var(--surface2);color:var(--text);}.copy.copied{color:var(--accent3);border-color:var(--accent3);}
+pre{padding:1.25rem 1.5rem;overflow-x:auto;line-height:1.7;}code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+code.il{background:var(--surface2);border:1px solid var(--border2);padding:1px 6px;border-radius:4px;font-size:12.5px;color:var(--accent3);}
+.kw{color:#c792ea;}.fn{color:#82aaff;}.st{color:#c3e88d;}.cm{color:#4a5568;font-style:italic;}.nu{color:#f78c6c;}.ty{color:#ffcb6b;}.at{color:#fb923c;}
+.bp{color:var(--accent3);user-select:none;}.bc{color:var(--dim);font-style:italic;}
+.insight{background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.2);border-left:3px solid var(--accent3);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.insight strong{color:var(--accent3);font-weight:500;}
+.warn{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.2);border-left:3px solid var(--accent4);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.warn strong{color:var(--accent4);font-weight:500;}
+.success{background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.2);border-left:3px solid var(--accent3);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.success strong{color:var(--accent3);font-weight:500;}
+.blue{background:rgba(124,158,255,.05);border:1px solid rgba(124,158,255,.2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.blue strong{color:var(--accent);font-weight:500;}
+table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:13.5px;}
+th{text-align:left;padding:10px 14px;background:var(--surface);border:1px solid var(--border2);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:500;}
+td{padding:10px 14px;border:1px solid var(--border);color:var(--muted);vertical-align:top;line-height:1.5;font-size:13px;}
+tr:hover td{background:var(--surface);}td strong{color:var(--text);font-weight:500;}
+.checkpoint{background:linear-gradient(135deg,rgba(52,211,153,.06),rgba(124,158,255,.06));border:1px solid rgba(52,211,153,.2);border-radius:10px;padding:1.5rem;margin:2.5rem 0;}
+.cp-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;}
+.cp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;}
+.cp-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);}
+.cp-icon{color:var(--accent3);flex-shrink:0;}
+.exercise{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin-top:2rem;}
+.ex-hdr{display:flex;align-items:center;gap:10px;margin-bottom:1rem;}
+.ex-badge{background:rgba(52,211,153,.1);color:var(--accent3);border:1px solid rgba(52,211,153,.3);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;}
+.ex-title{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:500;color:var(--text);}
+.ex-body{font-size:14px;color:var(--muted);line-height:1.7;}.ex-body ul{padding-left:1.25rem;margin-top:.5rem;}.ex-body li{margin-bottom:8px;}
+.next{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:2.5rem;}
+.nl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
+.nt{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:500;color:var(--text);}
+.nd{font-size:13px;color:var(--muted);margin-top:4px;}.na{font-size:22px;color:var(--accent3);flex-shrink:0;}
+.day-banner{background:linear-gradient(135deg,rgba(52,211,153,.08),rgba(124,158,255,.08));border:1px solid rgba(52,211,153,.3);border-radius:12px;padding:2rem;margin-top:2.5rem;text-align:center;}
+.db-title{font-family:'Fraunces',serif;font-size:1.8rem;font-weight:300;color:var(--text);margin-bottom:.5rem;}
+.db-sub{font-size:14px;color:var(--muted);margin-bottom:1.5rem;}
+.db-pills{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
+.db-pill{font-size:12px;font-family:'JetBrains Mono',monospace;padding:4px 14px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+hr.div{border:none;border-top:1px solid var(--border);margin:2.5rem 0;}
+::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+@media(max-width:768px){aside{display:none;}main{padding:2rem 1.5rem;}.hero h1{font-size:1.9rem;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hh"><span class="logo-pill">EVALS</span><span class="ht">Langfuse · LLM-as-a-Judge · Ollama</span></div>
+  <div class="chips">
+    <span class="chip done">Day 1 ✓</span><span class="chip done">D2·H1 ✓</span><span class="chip done">D2·H2 ✓</span><span class="chip active">D2·H3</span>
+  </div>
+</header>
+<div class="layout">
+<aside>
+  <div class="sbs">
+    <div class="sbl">Hour 3 · Steps</div>
+    <a class="sbi active" href="#s1"><span class="dot cur">1</span> Eval methods overview</a>
+    <a class="sbi" href="#s2"><span class="dot todo">2</span> LLM-as-a-judge in UI</a>
+    <a class="sbi" href="#s3"><span class="dot todo">3</span> Custom judge via SDK</a>
+    <a class="sbi" href="#s4"><span class="dot todo">4</span> Code evaluators</a>
+    <a class="sbi" href="#s5"><span class="dot todo">5</span> Day 2 capstone</a>
+  </div>
+  <div class="sbs">
+    <div class="sbl">Day 2 Plan</div>
+    <a class="sbi" href="#"><span class="dot done">H1</span> Prompt management ✓</a>
+    <a class="sbi" href="#"><span class="dot done">H2</span> Scoring & feedback ✓</a>
+    <a class="sbi" href="#s1"><span class="dot cur">H3</span> LLM-as-a-judge evals</a>
+  </div>
+</aside>
+<main>
+  <div class="hero">
+    <div class="eyebrow">Day 2 · Hour 3 of 9</div>
+    <h1>LLM-as-a-<em>judge</em><br>evaluators</h1>
+    <p class="hero-sub">Configure automated evaluators that score every new trace for hallucination, completeness, and relevance. Add deterministic code evaluators for JSON validation and format checks — all without consuming your Ollama tokens.</p>
+    <div class="hero-meta">
+      <span class="mb"><span class="md"></span> ~60 minutes</span>
+      <span class="mb"><span class="md" style="background:var(--accent)"></span> 2 Python files + UI config</span>
+      <span class="mb"><span class="md" style="background:var(--accent4)"></span> Completes Day 2</span>
+    </div>
+  </div>
+
+  <div class="step" id="s1">
+    <div class="shdr"><div class="snum">1</div><div>
+      <div class="stitle">Four evaluation methods — when to use each</div>
+      <div class="ssub">pick the right tool for each quality signal</div>
+    </div></div>
+    <div class="sbody">
+      <table>
+        <thead><tr><th>Method</th><th>Best for</th><th>Runs when</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Scores via SDK</strong><br>(Day 2 H2)</td><td>User feedback, heuristic checks you compute in code</td><td>At trace time, or async</td><td>Zero — your code</td></tr>
+          <tr><td><strong>LLM-as-a-Judge</strong><br>(this hour)</td><td>Semantic quality: helpfulness, hallucination, tone, rubric reasoning</td><td>Automated — fires on every new trace or experiment run</td><td>LLM tokens per eval</td></tr>
+          <tr><td><strong>Code Evaluators</strong><br>(this hour)</td><td>Deterministic: JSON validity, regex, exact match, schema, keyword checks</td><td>Automated — fires on every observation matching filter</td><td>Zero — pure Python</td></tr>
+          <tr><td><strong>Annotation Queues</strong></td><td>Human review: ambiguous cases, golden dataset creation</td><td>Manual — reviewer works a queue</td><td>Human time</td></tr>
+        </tbody>
+      </table>
+      <div class="insight">
+        <strong>Production pattern (from Langfuse docs):</strong> Use experiments + LLM-as-a-judge during development to validate prompt changes. Deploy observation-level evaluators in production for scalable, continuous monitoring. Code evaluators run for free at any scale — use them for all deterministic checks.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <div class="step" id="s2">
+    <div class="shdr"><div class="snum">2</div><div>
+      <div class="stitle">Configure LLM-as-a-judge in the UI</div>
+      <div class="ssub">set up hallucination + completeness evaluators</div>
+    </div></div>
+    <div class="sbody">
+      <p>LLM-as-a-judge evaluators live entirely in the Langfuse UI — no code required to set them up. Once configured, they fire automatically on every new trace that matches your filter.</p>
+
+      <p><strong>Step-by-step setup:</strong></p>
+      <div style="counter-reset:ui-step;">
+        <div style="display:flex;gap:12px;margin-bottom:12px;font-size:14px;color:var(--muted);">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0;margin-top:1px;">1</div>
+          <div>Go to <strong style="color:var(--text);">Langfuse UI → Evaluation → Evaluators → Create</strong></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;font-size:14px;color:var(--muted);">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0;margin-top:1px;">2</div>
+          <div>Choose <strong style="color:var(--text);">LLM-as-a-Judge</strong> type. Pick a built-in template or write your own rubric.</div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;font-size:14px;color:var(--muted);">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0;margin-top:1px;">3</div>
+          <div>Set the <strong style="color:var(--text);">target</strong>: Observations (scores each LLM call) or Traces (scores the whole pipeline).</div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;font-size:14px;color:var(--muted);">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0;margin-top:1px;">4</div>
+          <div>Choose <strong style="color:var(--text);">score type</strong>: Numeric (0–1 for gradients), Boolean (pass/fail), Categorical (labels).</div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;font-size:14px;color:var(--muted);">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0;margin-top:1px;">5</div>
+          <div>Enable <strong style="color:var(--text);">Fast Mode</strong> toggle — required for the evaluator to fire on live production traces.</div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:24px;font-size:14px;color:var(--muted);">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0;margin-top:1px;">6</div>
+          <div>Save and <strong style="color:var(--text);">Enable</strong>. Send a new trace from your chatbot — the evaluator fires within seconds.</div>
+        </div>
+      </div>
+
+      <p><strong>Create these two evaluators now</strong> — they cover the most critical QA Architect chatbot quality signals:</p>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt ly">RUBRIC</span> Evaluator 1: answer_completeness (NUMERIC 0–1)</span></div>
+        <pre><code><span class="cm">Name: answer_completeness
+Type: LLM-as-a-Judge
+Score type: NUMERIC (min: 0, max: 1)
+Target: Observations (type = generation)
+Fast Mode: ON
+
+Judge prompt:
+---
+You are evaluating a QA Architect chatbot response for completeness.
+
+User question: {{input}}
+Assistant response: {{output}}
+
+Score the response from 0.0 to 1.0:
+- 1.0: Fully answers the question with definition, context, and practical guidance
+- 0.7: Answers the main question but misses some important aspects
+- 0.4: Partially answers but leaves key parts unaddressed
+- 0.0: Does not answer the question at all
+
+Return ONLY a JSON object: {"score": 0.85, "reasoning": "one sentence explanation"}
+---</span></code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt ly">RUBRIC</span> Evaluator 2: is_actionable (BOOLEAN)</span></div>
+        <pre><code><span class="cm">Name: is_actionable
+Type: LLM-as-a-Judge
+Score type: BOOLEAN
+Target: Observations (type = generation)
+Fast Mode: ON
+
+Judge prompt:
+---
+You are evaluating a QA Architect chatbot response.
+
+User question: {{input}}
+Assistant response: {{output}}
+
+Does the response give actionable, practical advice the user can implement immediately?
+- TRUE (1): Response contains specific steps, examples, or concrete techniques
+- FALSE (0): Response is vague, theoretical only, or doesn't answer what was asked
+
+Return ONLY: {"score": 1, "reasoning": "one sentence"}
+---</span></code></pre>
+      </div>
+
+      <div class="success">
+        <strong>After saving both evaluators:</strong> Run your <code class="il">05_prompt_chatbot.py</code> from Day 2 H1 and ask 3-4 questions. Within 30–60 seconds, Langfuse will score each generation with <code class="il">answer_completeness</code> and <code class="il">is_actionable</code> automatically. You'll see the scores appear on the trace without touching any Python code.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <div class="step" id="s3">
+    <div class="shdr"><div class="snum">3</div><div>
+      <div class="stitle">Custom LLM judge via Python SDK</div>
+      <div class="ssub">01_custom_judge.py — run your own judge manually</div>
+    </div></div>
+    <div class="sbody">
+      <p>Sometimes you need a judge that runs in your own pipeline — not the automated UI evaluator. This pattern lets you run a judge model against any trace and push the score back to Langfuse.</p>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day2/01_custom_judge.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, json
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+JUDGE_PROMPT = <span class="st">"""You are an expert evaluator of QA Architect chatbot responses.
+
+Question: {question}
+Response: {response}
+
+Evaluate on THREE criteria. Return ONLY valid JSON, nothing else:
+{{
+  "helpfulness": {{
+    "score": 0.0_to_1.0,
+    "reasoning": "one sentence"
+  }},
+  "technical_accuracy": {{
+    "score": 0.0_to_1.0,
+    "reasoning": "one sentence"
+  }},
+  "has_example": {{
+    "score": 1_or_0,
+    "reasoning": "one sentence"
+  }}
+}}"""</span>
+
+
+<span class="kw">def</span> <span class="fn">run_judge</span>(question: str, response: str, trace_id: str, observation_id: str = <span class="kw">None</span>):
+    <span class="cm">"""Run the judge model and push scores back to Langfuse."""</span>
+    judge_response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[{
+            <span class="st">"role"</span>: <span class="st">"user"</span>,
+            <span class="st">"content"</span>: JUDGE_PROMPT.<span class="fn">format</span>(question=question, response=response)
+        }],
+        temperature=<span class="nu">0.1</span>,
+    )
+
+    raw = judge_response.choices[<span class="nu">0</span>].message.content.<span class="fn">strip</span>()
+
+    <span class="kw">try</span>:
+        <span class="cm"># Strip markdown fences if model adds them</span>
+        clean = raw.<span class="fn">replace</span>(<span class="st">"```json"</span>, <span class="st">""</span>).<span class="fn">replace</span>(<span class="st">"```"</span>, <span class="st">""</span>).<span class="fn">strip</span>()
+        scores = json.<span class="fn">loads</span>(clean)
+    <span class="kw">except</span> json.<span class="ty">JSONDecodeError</span>:
+        <span class="fn">print</span>(<span class="st">f"  [WARN] Judge returned non-JSON: {raw[:100]}"</span>)
+        <span class="kw">return</span>
+
+    <span class="cm"># Push all three scores to Langfuse</span>
+    <span class="kw">for</span> name, result <span class="kw">in</span> scores.<span class="fn">items</span>():
+        <span class="kw">try</span>:
+            score_val = <span class="fn">float</span>(result[<span class="st">"score"</span>])
+            data_type = <span class="st">"BOOLEAN"</span> <span class="kw">if</span> name == <span class="st">"has_example"</span> <span class="kw">else</span> <span class="st">"NUMERIC"</span>
+
+            langfuse.<span class="fn">create_score</span>(
+                name=<span class="st">f"judge_{name}"</span>,
+                value=score_val,
+                data_type=data_type,
+                trace_id=trace_id,
+                observation_id=observation_id,
+                comment=result.<span class="fn">get</span>(<span class="st">"reasoning"</span>, <span class="st">""</span>),
+            )
+            <span class="fn">print</span>(<span class="st">f"  ✓ {name}: {score_val} — {result.get('reasoning','')[:60]}"</span>)
+        <span class="kw">except</span> (<span class="ty">KeyError</span>, <span class="ty">ValueError</span>) <span class="kw">as</span> e:
+            <span class="fn">print</span>(<span class="st">f"  [WARN] Score parse error for {name}: {e}"</span>)
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-generation"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">get_qa_answer</span>(question: str) -> <span class="fn">tuple</span>[str, str]:
+    <span class="cm">"""Returns (answer, observation_id)"""</span>
+    system = <span class="st">"You are a QA Architect. Give detailed, practical answers with examples."</span>
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+    )
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+    obs_id = langfuse.<span class="fn">get_current_observation_id</span>()
+    langfuse.<span class="fn">update_current_generation</span>(output=answer,
+        usage={"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens})
+    <span class="kw">return</span> answer, obs_id
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    questions = [
+        <span class="st">"What is risk-based testing and how do you prioritise test cases?"</span>,
+        <span class="st">"Explain the difference between unit, integration, and E2E tests."</span>,
+        <span class="st">"How do you measure test coverage effectively?"</span>,
+    ]
+
+    <span class="kw">for</span> q <span class="kw">in</span> questions:
+        trace_id = <span class="kw">None</span>
+        obs_id   = <span class="kw">None</span>
+
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Judge eval: {q[:40]}"</span>,
+            user_id=<span class="st">"user-123"</span>,
+            tags=[<span class="st">"judge-eval"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"tutorial"</span>: <span class="st">"day2-hour3"</span>},
+        ):
+            answer, obs_id = <span class="fn">get_qa_answer</span>(q)
+            trace_id = langfuse.<span class="fn">get_current_trace_id</span>()
+
+        <span class="fn">print</span>(<span class="st">f"\nQ: {q}"</span>)
+        <span class="fn">print</span>(<span class="st">f"A: {answer[:120]}..."</span>)
+        <span class="fn">print</span>(<span class="st">"Running judge..."</span>)
+        <span class="fn">run_judge</span>(q, answer, trace_id, obs_id)
+        <span class="fn">print</span>()
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">"✓ All traces judged. Check Langfuse → Traces for judge_* scores."</span>)
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 01_custom_judge.py</code></pre>
+      </div>
+
+      <div class="warn">
+        <strong>JSON parsing note:</strong> Ollama models sometimes wrap JSON in markdown code fences. The code above strips these — always clean judge output before parsing. If you see persistent parse errors, add <code class="il">format="json"</code> to the Ollama API call (supported by llama3.2 and mistral).
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <div class="step" id="s4">
+    <div class="shdr"><div class="snum">4</div><div>
+      <div class="stitle">Code evaluators — deterministic checks</div>
+      <div class="ssub">02_code_evals.py — zero-cost, zero-LLM quality gates</div>
+    </div></div>
+    <div class="sbody">
+      <p>Code evaluators run pure Python logic against your traces. They're free (no LLM tokens), instant, and 100% deterministic. Use them for everything that doesn't need semantic judgment.</p>
+
+      <div class="blue">
+        <strong>Code evaluators in Langfuse UI (Launch Week #5 feature):</strong> You can also write Python code evaluators directly in the Langfuse UI under Evaluation → Code Evaluators. They run server-side on every matching observation. The pattern below shows the equivalent logic you'd run in your own pipeline — same checks, your infrastructure.
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day2/02_code_evals.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, json, re
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+
+<span class="cm"># ── Deterministic evaluators — no LLM needed ─────────────────────</span>
+
+<span class="kw">def</span> <span class="fn">eval_min_length</span>(text: str, min_words: int = <span class="nu">20</span>) -> <span class="fn">tuple</span>[int, str]:
+    <span class="cm">"""BOOLEAN: response has at least min_words words."""</span>
+    count = <span class="fn">len</span>(text.<span class="fn">split</span>())
+    passed = count >= min_words
+    <span class="kw">return</span> (<span class="nu">1</span> <span class="kw">if</span> passed <span class="kw">else</span> <span class="nu">0</span>,
+            <span class="st">f"{count} words ({'pass' if passed else 'fail'}, min={min_words})"</span>)
+
+
+<span class="kw">def</span> <span class="fn">eval_no_apology</span>(text: str) -> <span class="fn">tuple</span>[int, str]:
+    <span class="cm">"""BOOLEAN: response doesn't start with excessive apologies."""</span>
+    apology_starts = [<span class="st">"i'm sorry"</span>, <span class="st">"i apologize"</span>, <span class="st">"unfortunately i cannot"</span>]
+    first_50 = text.lower()[:<span class="nu">50</span>]
+    found = <span class="fn">any</span>(a <span class="kw">in</span> first_50 <span class="kw">for</span> a <span class="kw">in</span> apology_starts)
+    <span class="kw">return</span> (<span class="nu">0</span> <span class="kw">if</span> found <span class="kw">else</span> <span class="nu">1</span>, <span class="st">"apology detected"</span> <span class="kw">if</span> found <span class="kw">else</span> <span class="st">"no apology"</span>)
+
+
+<span class="kw">def</span> <span class="fn">eval_keyword_coverage</span>(answer: str, question: str) -> <span class="fn">tuple</span>[float, str]:
+    <span class="cm">"""NUMERIC: fraction of question nouns found in answer."""</span>
+    stopwords = {<span class="st">"what"</span>,<span class="st">"is"</span>,<span class="st">"the"</span>,<span class="st">"a"</span>,<span class="st">"an"</span>,<span class="st">"how"</span>,<span class="st">"do"</span>,<span class="st">"you"</span>,<span class="st">"and"</span>,<span class="st">"of"</span>,<span class="st">"to"</span>}
+    q_words = {w.lower() <span class="kw">for</span> w <span class="kw">in</span> re.<span class="fn">findall</span>(<span class="st">r'\b\w{4,}\b'</span>, question)} - stopwords
+    <span class="kw">if</span> <span class="kw">not</span> q_words:
+        <span class="kw">return</span> <span class="nu">1.0</span>, <span class="st">"no keywords to check"</span>
+    answer_lower = answer.lower()
+    found = <span class="fn">sum</span>(<span class="nu">1</span> <span class="kw">for</span> w <span class="kw">in</span> q_words <span class="kw">if</span> w <span class="kw">in</span> answer_lower)
+    score = <span class="fn">round</span>(found / <span class="fn">len</span>(q_words), <span class="nu">3</span>)
+    <span class="kw">return</span> score, <span class="st">f"{found}/{len(q_words)} keywords covered"</span>
+
+
+<span class="kw">def</span> <span class="fn">eval_no_hallucinated_urls</span>(text: str) -> <span class="fn">tuple</span>[int, str]:
+    <span class="cm">"""BOOLEAN: response doesn't contain invented URLs."""</span>
+    urls = re.<span class="fn">findall</span>(<span class="st">r'https?://\S+'</span>, text)
+    <span class="kw">return</span> (<span class="nu">0</span> <span class="kw">if</span> urls <span class="kw">else</span> <span class="nu">1</span>,
+            <span class="st">f"Found URLs: {urls[:2]}"</span> <span class="kw">if</span> urls <span class="kw">else</span> <span class="st">"no URLs"</span>)
+
+
+<span class="kw">def</span> <span class="fn">run_code_evals</span>(question: str, answer: str, trace_id: str, obs_id: str = <span class="kw">None</span>):
+    <span class="cm">"""Run all deterministic evals and push scores to Langfuse."""</span>
+    evals = [
+        (<span class="st">"min_length_20w"</span>,         <span class="st">"BOOLEAN"</span>,  <span class="fn">eval_min_length</span>(answer, <span class="nu">20</span>)),
+        (<span class="st">"no_apology_start"</span>,       <span class="st">"BOOLEAN"</span>,  <span class="fn">eval_no_apology</span>(answer)),
+        (<span class="st">"keyword_coverage"</span>,       <span class="st">"NUMERIC"</span>,  <span class="fn">eval_keyword_coverage</span>(answer, question)),
+        (<span class="st">"no_hallucinated_urls"</span>,   <span class="st">"BOOLEAN"</span>,  <span class="fn">eval_no_hallucinated_urls</span>(answer)),
+    ]
+
+    <span class="kw">for</span> name, dtype, (value, comment) <span class="kw">in</span> evals:
+        langfuse.<span class="fn">create_score</span>(
+            name=name, value=<span class="fn">float</span>(value),
+            data_type=dtype, comment=comment,
+            trace_id=trace_id, observation_id=obs_id,
+        )
+        status = <span class="st">"✓"</span> <span class="kw">if</span> (<span class="fn">float</span>(value) > <span class="nu">0</span>) <span class="kw">else</span> <span class="st">"✗"</span>
+        <span class="fn">print</span>(<span class="st">f"  {status} {name}: {value} ({comment})"</span>)
+
+
+<span class="at">@observe</span>(name=<span class="st">"code-eval-qa"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">get_answer</span>(question: str) -> <span class="fn">tuple</span>[str, str]:
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a QA Architect. Be thorough."</span>},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+    obs_id = langfuse.<span class="fn">get_current_observation_id</span>()
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+        output=answer,
+        usage={"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens},
+    )
+    <span class="kw">return</span> answer, obs_id
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    questions = [
+        <span class="st">"What is exploratory testing?"</span>,
+        <span class="st">"Hi"</span>,   <span class="cm"># ← too short — will fail min_length</span>
+        <span class="st">"How do you build a regression test suite for a REST API?"</span>,
+    ]
+
+    <span class="kw">for</span> q <span class="kw">in</span> questions:
+        trace_id = obs_id = <span class="kw">None</span>
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Code-eval: {q[:40]}"</span>,
+            user_id=<span class="st">"user-123"</span>, tags=[<span class="st">"code-evals"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"tutorial"</span>: <span class="st">"day2-hour3"</span>},
+        ):
+            answer, obs_id = <span class="fn">get_answer</span>(q)
+            trace_id = langfuse.<span class="fn">get_current_trace_id</span>()
+
+        <span class="fn">print</span>(<span class="st">f"\nQ: {q}"</span>)
+        <span class="fn">print</span>(<span class="st">f"A: {answer[:80]}..."</span>)
+        <span class="fn">print</span>(<span class="st">"Code evals:"</span>)
+        <span class="fn">run_code_evals</span>(q, answer, trace_id, obs_id)
+
+    langfuse.<span class="fn">flush</span>()
+</code></pre>
+      </div>
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 02_code_evals.py</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <div class="step" id="s5">
+    <div class="shdr"><div class="snum">5</div><div>
+      <div class="stitle">Day 2 complete — what you've built</div>
+      <div class="ssub">the full evaluation stack</div>
+    </div></div>
+    <div class="sbody">
+      <p>Across Day 2's three hours, you've assembled a complete evaluation stack on top of the Day 1 tracing foundation. Every QA Architect chatbot response now has multiple quality signals:</p>
+
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:2.2;">
+        <div style="color:var(--accent6);">Prompt Management (H1)</div>
+        <div style="color:var(--muted);padding-left:1rem;">└─ qa-architect-system vN pulled at runtime, linked to every generation</div>
+        <div style="color:var(--accent5);margin-top:.5rem;">Scoring (H2)</div>
+        <div style="color:var(--muted);padding-left:1rem;">├─ auto_quality: excellent|good|acceptable|poor (CATEGORICAL)</div>
+        <div style="color:var(--muted);padding-left:1rem;">├─ response_length_score: 0–1 (NUMERIC)</div>
+        <div style="color:var(--muted);padding-left:1rem;">└─ user_feedback: true|false (BOOLEAN, async)</div>
+        <div style="color:var(--accent3);margin-top:.5rem;">Evaluators (H3)</div>
+        <div style="color:var(--muted);padding-left:1rem;">├─ answer_completeness: 0–1 (UI LLM-as-judge)</div>
+        <div style="color:var(--muted);padding-left:1rem;">├─ is_actionable: true|false (UI LLM-as-judge)</div>
+        <div style="color:var(--muted);padding-left:1rem;">├─ judge_helpfulness: 0–1 (SDK judge)</div>
+        <div style="color:var(--muted);padding-left:1rem;">├─ keyword_coverage: 0–1 (code eval)</div>
+        <div style="color:var(--muted);padding-left:1rem;">└─ no_hallucinated_urls: 0|1 (code eval)</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <div class="checkpoint">
+    <div class="cp-title">✓ Hour 3 · Day 2 complete</div>
+    <div class="cp-grid">
+      <div class="cp-item"><span class="cp-icon">✓</span> Know when to use each evaluation method</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Configured LLM-as-a-judge evaluators in UI</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Wrote custom SDK judge with JSON parsing</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Built 4 deterministic code evaluators</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Every trace has 8+ quality signals</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Complete Day 2 evaluation stack</div>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="ex-hdr"><span class="ex-badge">MINI EXERCISE</span><span class="ex-title">Build your filter dashboard</span></div>
+    <div class="ex-body">
+      <ul>
+        <li><strong>Exercise 1:</strong> In Langfuse Traces, build a compound filter: <code class="il">user_feedback=false AND answer_completeness &lt; 0.5</code>. This is your "most broken" queue — responses users hated AND the judge confirms were incomplete.</li>
+        <li><strong>Exercise 2:</strong> Backfill evaluators — in the Traces table, select all traces from today → Actions → Evaluate → pick your <code class="il">answer_completeness</code> evaluator. This runs it retroactively on all existing traces.</li>
+        <li><strong>Exercise 3:</strong> Iterate the prompt — take one of your low-scoring traces, copy its question, and test a new prompt version in the Langfuse Playground. Does the new prompt score better?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="day-banner">
+    <div class="db-title">🎉 Day 2 Complete</div>
+    <div class="db-sub">You have a fully instrumented, prompt-managed, evaluated QA Architect chatbot. Every response has automated quality signals from three different evaluation methods.</div>
+    <div class="db-pills">
+      <span class="db-pill">✓ Prompt management</span>
+      <span class="db-pill">✓ Version control</span>
+      <span class="db-pill">✓ Scoring + feedback</span>
+      <span class="db-pill">✓ LLM-as-judge</span>
+      <span class="db-pill">✓ Code evaluators</span>
+    </div>
+  </div>
+
+  <div class="next">
+    <div>
+      <div class="nl">Up next — Day 3 · Hour 1</div>
+      <div class="nt">Datasets & Experiments</div>
+      <div class="nd">Build evaluation datasets from production traces, run systematic experiments to compare prompt versions, and wire it into your workflow for regression testing.</div>
+    </div>
+    <div class="na">→</div>
+  </div>
+</main>
+</div>
+<script>
+function copyCode(btn){const pre=btn.closest('.cb').querySelector('pre');navigator.clipboard.writeText(pre.innerText).then(()=>{btn.textContent='copied!';btn.classList.add('copied');setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},1800);});}
+const sections=document.querySelectorAll('.step[id]');const items=document.querySelectorAll('.sbi[href^="#"]');
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){items.forEach(a=>a.classList.remove('active'));const a=document.querySelector(`.sbi[href="#${e.target.id}"]`);if(a)a.classList.add('active');}});},{rootMargin:'-20% 0% -60% 0%'});
+sections.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

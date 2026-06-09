@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse + Ollama · Day 1 · Hour 1</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e28;
+    --border: #252a38;
+    --border2: #2e3548;
+    --text: #e8eaf0;
+    --muted: #6b7394;
+    --dim: #3d4460;
+    --accent: #7c9eff;
+    --accent2: #a78bfa;
+    --accent3: #34d399;
+    --accent4: #fb923c;
+    --accent5: #f472b6;
+    --code-bg: #0a0c12;
+    --highlight: #1e2235;
+    --tag-blue: #1a2540;
+    --tag-blue-text: #7c9eff;
+    --tag-green: #0f2018;
+    --tag-green-text: #34d399;
+    --tag-purple: #1e1530;
+    --tag-purple-text: #a78bfa;
+    --tag-orange: #201509;
+    --tag-orange-text: #fb923c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    position: sticky;
+    top: 0;
+    background: rgba(13,15,20,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-pill {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+  }
+  .header-title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  .progress-chips { display: flex; gap: 6px; }
+  .chip {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+  }
+  .chip.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(124,158,255,0.08);
+  }
+
+  /* ─── LAYOUT ─── */
+  .layout { display: flex; min-height: calc(100vh - 56px); }
+
+  /* ─── SIDEBAR ─── */
+  aside {
+    width: 240px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 2rem 0;
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    padding: 0 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .sidebar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    margin-bottom: 2px;
+  }
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: var(--highlight); color: var(--accent); }
+  .step-dot {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-dot.done { background: rgba(52,211,153,0.15); color: var(--accent3); }
+  .step-dot.current { background: rgba(124,158,255,0.15); color: var(--accent); }
+  .step-dot.todo { background: var(--surface2); color: var(--dim); }
+
+  /* ─── MAIN CONTENT ─── */
+  main {
+    flex: 1;
+    padding: 3rem 3.5rem;
+    max-width: 860px;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    margin-bottom: 3rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 2.6rem;
+    font-weight: 300;
+    line-height: 1.15;
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .hero-sub {
+    font-size: 15px;
+    color: var(--muted);
+    max-width: 540px;
+    line-height: 1.7;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .meta-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+  }
+  .meta-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); }
+
+  /* ─── PREREQ BOX ─── */
+  .prereq-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 3rem;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .prereq-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex: 1;
+    min-width: 180px;
+  }
+  .prereq-icon {
+    font-size: 18px;
+    margin-top: 1px;
+  }
+  .prereq-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .prereq-desc { font-size: 12px; color: var(--muted); }
+
+  /* ─── KEY INSIGHT ─── */
+  .insight {
+    background: rgba(124,158,255,0.05);
+    border: 1px solid rgba(124,158,255,0.2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.65;
+  }
+  .insight strong { color: var(--accent); font-weight: 500; }
+
+  .warn-box {
+    background: rgba(251,146,60,0.05);
+    border: 1px solid rgba(251,146,60,0.2);
+    border-left: 3px solid var(--accent4);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.65;
+  }
+  .warn-box strong { color: var(--accent4); font-weight: 500; }
+
+  .success-box {
+    background: rgba(52,211,153,0.05);
+    border: 1px solid rgba(52,211,153,0.2);
+    border-left: 3px solid var(--accent3);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.65;
+  }
+  .success-box strong { color: var(--accent3); font-weight: 500; }
+
+  /* ─── STEP SECTIONS ─── */
+  .step-section { margin-bottom: 3rem; }
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 1.25rem;
+  }
+  .step-number {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .step-title-block {}
+  .step-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .step-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
+  .step-body { padding-left: 50px; }
+  p { margin-bottom: 1rem; color: var(--muted); font-size: 15px; }
+  p strong { color: var(--text); font-weight: 500; }
+
+  /* ─── CODE BLOCKS ─── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 1.25rem 0;
+    font-size: 13.5px;
+  }
+  .code-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .code-filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .lang-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+  }
+  .lang-bash { background: var(--tag-green); color: var(--tag-green-text); }
+  .lang-python { background: var(--tag-blue); color: var(--tag-blue-text); }
+  .lang-env { background: var(--tag-orange); color: var(--tag-orange-text); }
+  .lang-text { background: var(--surface2); color: var(--muted); }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: var(--surface2); color: var(--text); }
+  .copy-btn.copied { color: var(--accent3); border-color: var(--accent3); }
+
+  pre {
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    line-height: 1.65;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* Syntax highlighting */
+  .kw { color: #c792ea; }   /* keywords */
+  .fn { color: #82aaff; }   /* functions */
+  .st { color: #c3e88d; }   /* strings */
+  .cm { color: #4a5568; font-style: italic; }   /* comments */
+  .va { color: #f07178; }   /* variables/names */
+  .nu { color: #f78c6c; }   /* numbers */
+  .op { color: #89ddff; }   /* operators */
+  .ty { color: #ffcb6b; }   /* types */
+  .at { color: #fb923c; }   /* attributes/decorators */
+  .pn { color: var(--text); }  /* punctuation */
+
+  /* Bash specific */
+  .bash-prompt { color: var(--accent3); user-select: none; }
+  .bash-cmd { color: var(--text); }
+  .bash-flag { color: var(--accent4); }
+  .bash-comment { color: var(--dim); font-style: italic; }
+
+  /* Env file */
+  .env-key { color: var(--accent4); }
+  .env-val { color: var(--accent3); }
+  .env-comment { color: var(--dim); font-style: italic; }
+
+  /* Inline code */
+  code.inline {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: var(--accent);
+  }
+
+  /* ─── CONCEPT DIAGRAM ─── */
+  .concept-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .concept-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+  }
+  .diagram {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--text);
+  }
+  .d-trace { color: var(--accent); }
+  .d-gen { color: var(--accent2); }
+  .d-field { color: var(--accent3); }
+  .d-val { color: var(--muted); }
+
+  /* ─── UI TOUR ─── */
+  .ui-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin: 1.25rem 0;
+  }
+  .ui-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .ui-card-icon { font-size: 20px; margin-bottom: 8px; }
+  .ui-card-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .ui-card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ─── NUMBERED LIST ─── */
+  ol.steps {
+    padding-left: 0;
+    list-style: none;
+    counter-reset: step-counter;
+  }
+  ol.steps li {
+    counter-increment: step-counter;
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  ol.steps li::before {
+    content: counter(step-counter);
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ─── EXERCISE ─── */
+  .exercise {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+  }
+  .exercise-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .exercise-badge {
+    background: rgba(167,139,250,0.12);
+    color: var(--accent2);
+    border: 1px solid rgba(167,139,250,0.3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.08em;
+  }
+  .exercise-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .exercise-body { font-size: 14px; color: var(--muted); line-height: 1.7; }
+  .exercise-body ul { padding-left: 1.25rem; margin-top: 0.5rem; }
+  .exercise-body li { margin-bottom: 6px; }
+
+  /* ─── CHECKPOINT ─── */
+  .checkpoint {
+    background: linear-gradient(135deg, rgba(52,211,153,0.06), rgba(124,158,255,0.06));
+    border: 1px solid rgba(52,211,153,0.2);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 2.5rem 0;
+  }
+  .checkpoint-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .check-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px;
+  }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .check-icon { color: var(--accent3); flex-shrink: 0; margin-top: 1px; }
+
+  /* ─── DIVIDER ─── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+  /* ─── NEXT ─── */
+  .next-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+  .next-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .next-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .next-desc { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .next-arrow {
+    font-size: 22px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* Headings inside content */
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text);
+    margin: 2rem 0 0.75rem;
+  }
+  h3 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 1.5rem 0 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    aside { display: none; }
+    main { padding: 2rem 1.5rem; }
+    .hero h1 { font-size: 1.9rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="header-left">
+    <span class="logo-pill">LANGFUSE</span>
+    <span class="header-title">Python Tutorial · Ollama Edition</span>
+  </div>
+  <div class="progress-chips">
+    <span class="chip active">Day 1</span>
+    <span class="chip active">Hour 1</span>
+    <span class="chip">Hour 2</span>
+    <span class="chip">Hour 3</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ─── SIDEBAR ─── -->
+  <aside>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Hour 1 · Steps</div>
+      <a class="sidebar-item active" href="#step1">
+        <span class="step-dot current">1</span> Account setup
+      </a>
+      <a class="sidebar-item" href="#step2">
+        <span class="step-dot todo">2</span> Install Ollama
+      </a>
+      <a class="sidebar-item" href="#step3">
+        <span class="step-dot todo">3</span> Python environment
+      </a>
+      <a class="sidebar-item" href="#step4">
+        <span class="step-dot todo">4</span> Configure .env
+      </a>
+      <a class="sidebar-item" href="#step5">
+        <span class="step-dot todo">5</span> First trace
+      </a>
+      <a class="sidebar-item" href="#step6">
+        <span class="step-dot todo">6</span> Concept: data model
+      </a>
+      <a class="sidebar-item" href="#step7">
+        <span class="step-dot todo">7</span> UI tour
+      </a>
+      <a class="sidebar-item" href="#step8">
+        <span class="step-dot todo">8</span> Add user + tags
+      </a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Today's Plan</div>
+      <a class="sidebar-item" href="#step1">
+        <span class="step-dot current">H1</span> Setup & first trace
+      </a>
+      <a class="sidebar-item" href="#">
+        <span class="step-dot todo">H2</span> Data model deep-dive
+      </a>
+      <a class="sidebar-item" href="#">
+        <span class="step-dot todo">H3</span> @observe & sessions
+      </a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Why Ollama?</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.6; padding: 0 10px;">
+        Ollama exposes a local OpenAI-compatible API at <code class="inline">localhost:11434</code>. Langfuse's drop-in wrapper works identically — just point it there instead of OpenAI's servers.
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─── -->
+  <main>
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-eyebrow">Day 1 · Hour 1 of 9</div>
+      <h1>Environment &amp; your<br><em>first trace</em></h1>
+      <p class="hero-sub">We'll wire Langfuse to a local Ollama model — no OpenAI key needed. By the end of this hour, your first trace will be live in the Langfuse dashboard.</p>
+      <div class="hero-meta">
+        <span class="meta-badge"><span class="meta-dot"></span> ~60 minutes</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:var(--accent2)"></span> Zero code skipped</span>
+        <span class="meta-badge"><span class="meta-dot" style="background:var(--accent4)"></span> Ollama runs 100% local</span>
+      </div>
+    </div>
+
+    <!-- PREREQS -->
+    <div class="prereq-box">
+      <div class="prereq-item">
+        <span class="prereq-icon">🐍</span>
+        <div>
+          <div class="prereq-title">Python 3.10+</div>
+          <div class="prereq-desc">Run <code class="inline">python --version</code> to verify</div>
+        </div>
+      </div>
+      <div class="prereq-item">
+        <span class="prereq-icon">🦙</span>
+        <div>
+          <div class="prereq-title">Ollama installed</div>
+          <div class="prereq-desc">We'll do this in Step 2 if not done yet</div>
+        </div>
+      </div>
+      <div class="prereq-item">
+        <span class="prereq-icon">☁️</span>
+        <div>
+          <div class="prereq-title">Langfuse account</div>
+          <div class="prereq-desc">Free tier at cloud.langfuse.com</div>
+        </div>
+      </div>
+      <div class="prereq-item">
+        <span class="prereq-icon">📝</span>
+        <div>
+          <div class="prereq-title">A terminal</div>
+          <div class="prereq-desc">Any shell: bash, zsh, PowerShell</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="step-section" id="step1">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title-block">
+          <div class="step-title">Create your Langfuse account</div>
+          <div class="step-subtitle">free tier · no credit card</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Go to <strong>cloud.langfuse.com</strong> and sign up. The free tier gives you <strong>50,000 observations/month</strong> — plenty for this entire 9-hour tutorial.</p>
+        <ol class="steps">
+          <li>Sign up at <strong>https://cloud.langfuse.com/auth/sign-up</strong></li>
+          <li>You land on a default project. Rename it <strong>langfuse-tutorial</strong> in Settings → Project.</li>
+          <li>Go to <strong>Settings → API Keys</strong> and click <strong>Create new API key</strong>.</li>
+          <li>Copy both the <strong>Secret Key</strong> (<code class="inline">sk-lf-...</code>) and <strong>Public Key</strong> (<code class="inline">pk-lf-...</code>). Store them — you only see the secret once.</li>
+        </ol>
+        <div class="warn-box">
+          <strong>Region matters.</strong> US users → <code class="inline">https://us.cloud.langfuse.com</code> &nbsp;|&nbsp; EU users → <code class="inline">https://cloud.langfuse.com</code> &nbsp;|&nbsp; Japan → <code class="inline">https://jp.cloud.langfuse.com</code>. The base URL goes in your <code class="inline">.env</code> in Step 4.
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- STEP 2 -->
+    <div class="step-section" id="step2">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div class="step-title-block">
+          <div class="step-title">Install Ollama &amp; pull a model</div>
+          <div class="step-subtitle">local LLM · no API key needed</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Ollama is an open-source tool that runs LLMs locally. It exposes an OpenAI-compatible API at <code class="inline">http://localhost:11434/v1</code> — which is exactly what Langfuse's drop-in wrapper will call.</p>
+
+        <p>Download Ollama from <strong>ollama.com/download</strong> for your OS (macOS, Linux, or Windows). Then pull a model. We recommend <strong>llama3.2</strong> (2GB, fast) or <strong>mistral</strong> (4GB, very capable):</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="bash-comment"># After installing Ollama, pull a model (choose one):</span>
+
+<span class="bash-prompt">$</span> <span class="bash-cmd">ollama pull llama3.2</span>      <span class="bash-comment"># ~2 GB — good default choice</span>
+<span class="bash-comment"># OR</span>
+<span class="bash-prompt">$</span> <span class="bash-cmd">ollama pull mistral</span>        <span class="bash-comment"># ~4 GB — more capable</span>
+
+<span class="bash-comment"># Verify Ollama is running (keep this terminal open):</span>
+<span class="bash-prompt">$</span> <span class="bash-cmd">ollama serve</span>               <span class="bash-comment"># starts the local server on :11434</span></code></pre>
+        </div>
+
+        <p>Test that Ollama is responding before continuing. Open a second terminal and run:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> verify Ollama</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">curl http://localhost:11434/v1/models</span>
+
+<span class="bash-comment"># Expected: JSON listing your pulled models</span>
+<span class="bash-comment"># {"object":"list","data":[{"id":"llama3.2",...}]}</span></code></pre>
+        </div>
+
+        <div class="success-box">
+          <strong>Got JSON back?</strong> Ollama is live. You now have a local LLM serving on the same API format as OpenAI — this is the key insight that makes the Langfuse integration effortless.
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- STEP 3 -->
+    <div class="step-section" id="step3">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <div class="step-title-block">
+          <div class="step-title">Set up your Python environment</div>
+          <div class="step-subtitle">venv · pip install</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Always work inside a virtual environment to keep your system Python clean.</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="bash-comment"># Create project folder</span>
+<span class="bash-prompt">$</span> <span class="bash-cmd">mkdir langfuse-tutorial &amp;&amp; cd langfuse-tutorial</span>
+
+<span class="bash-comment"># Create a virtual environment</span>
+<span class="bash-prompt">$</span> <span class="bash-cmd">python -m venv .venv</span>
+
+<span class="bash-comment"># Activate it</span>
+<span class="bash-prompt">$</span> <span class="bash-cmd">source .venv/bin/activate</span>        <span class="bash-comment"># Mac / Linux</span>
+<span class="bash-comment"># .venv\Scripts\activate             # Windows PowerShell</span>
+
+<span class="bash-comment"># Install required packages</span>
+<span class="bash-prompt">$</span> <span class="bash-cmd">pip install langfuse openai python-dotenv</span></code></pre>
+        </div>
+
+        <div class="insight">
+          <strong>Why install openai?</strong> Ollama exposes an OpenAI-compatible REST API. The <code class="inline">openai</code> Python package is the client for that API. Langfuse wraps the openai client, so no actual OpenAI account is needed — we just point the client at <code class="inline">localhost:11434</code> instead.
+        </div>
+
+        <div class="warn-box">
+          <strong>SDK note:</strong> The Langfuse Python SDK was completely rewritten as <strong>v4 in March 2026</strong>. Make sure pip installs v4+ — run <code class="inline">pip show langfuse</code> and confirm the version is 4.x. It requires Python ≥ 3.10.
+        </div>
+
+        <p>Also create a <code class="inline">.gitignore</code> now so you never accidentally commit secrets:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">echo ".env" >> .gitignore</span>
+<span class="bash-prompt">$</span> <span class="bash-cmd">echo ".venv/" >> .gitignore</span></code></pre>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- STEP 4 -->
+    <div class="step-section" id="step4">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <div class="step-title-block">
+          <div class="step-title">Configure your <code style="font-size:1rem">.env</code> file</div>
+          <div class="step-subtitle">API keys · Langfuse + Ollama settings</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Create a file named <code class="inline">.env</code> in your project folder and paste this in. Fill in your actual Langfuse keys from Step 1.</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-env">.ENV</span> .env</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="env-comment"># ── Langfuse Cloud credentials ──────────────────────</span>
+<span class="env-key">LANGFUSE_PUBLIC_KEY</span>=<span class="env-val">"pk-lf-YOUR_PUBLIC_KEY_HERE"</span>
+<span class="env-key">LANGFUSE_SECRET_KEY</span>=<span class="env-val">"sk-lf-YOUR_SECRET_KEY_HERE"</span>
+
+<span class="env-comment"># Your region base URL (pick the one matching your account):</span>
+<span class="env-key">LANGFUSE_BASE_URL</span>=<span class="env-val">"https://us.cloud.langfuse.com"</span>   <span class="env-comment"># 🇺🇸 US</span>
+<span class="env-comment"># LANGFUSE_BASE_URL="https://cloud.langfuse.com"       # 🇪🇺 EU</span>
+<span class="env-comment"># LANGFUSE_BASE_URL="https://jp.cloud.langfuse.com"    # 🇯🇵 Japan</span>
+
+<span class="env-comment"># ── Ollama local server ──────────────────────────────</span>
+<span class="env-key">OLLAMA_BASE_URL</span>=<span class="env-val">"http://localhost:11434/v1"</span>
+<span class="env-key">OLLAMA_MODEL</span>=<span class="env-val">"llama3.2"</span>                    <span class="env-comment"># or "mistral", etc.</span></code></pre>
+        </div>
+
+        <div class="warn-box">
+          <strong>LANGFUSE_BASE_URL vs LANGFUSE_HOST:</strong> Use <code class="inline">LANGFUSE_BASE_URL</code> (not <code class="inline">LANGFUSE_HOST</code>) with the v4 SDK. The v4 rewrite standardised on <code class="inline">BASE_URL</code>. Using the wrong one is the most common setup mistake.
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- STEP 5 -->
+    <div class="step-section" id="step5">
+      <div class="step-header">
+        <div class="step-number">5</div>
+        <div class="step-title-block">
+          <div class="step-title">Send your first trace</div>
+          <div class="step-subtitle">01_first_trace.py · one import change</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Create a file called <code class="inline">01_first_trace.py</code>. The entire Langfuse integration is <strong>one import line</strong> different from plain OpenAI usage:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> 01_first_trace.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv()   <span class="cm"># reads your .env file into environment variables</span>
+
+<span class="cm"># ✅ This ONE import is the entire Langfuse integration</span>
+<span class="cm"># Langfuse wraps the OpenAI client — same API, auto-tracing</span>
+<span class="kw">from</span> langfuse.openai <span class="kw">import</span> OpenAI
+
+<span class="cm"># Point the client at your local Ollama server</span>
+client = <span class="fn">OpenAI</span>(
+    base_url=os.getenv(<span class="st">"OLLAMA_BASE_URL"</span>),   <span class="cm"># http://localhost:11434/v1</span>
+    api_key=<span class="st">"ollama"</span>,                        <span class="cm"># required by openai sdk, but ignored by Ollama</span>
+)
+
+<span class="cm"># Use the client exactly like you would use the OpenAI SDK</span>
+response = client.chat.completions.<span class="fn">create</span>(
+    name=<span class="st">"my-first-trace"</span>,              <span class="cm"># readable label in Langfuse UI</span>
+    model=os.getenv(<span class="st">"OLLAMA_MODEL"</span>),    <span class="cm"># e.g. "llama3.2"</span>
+    messages=[
+        {<span class="st">"role"</span>: <span class="st">"system"</span>,  <span class="st">"content"</span>: <span class="st">"You are a helpful assistant."</span>},
+        {<span class="st">"role"</span>: <span class="st">"user"</span>,    <span class="st">"content"</span>: <span class="st">"What is Langfuse in one sentence?"</span>},
+    ],
+    metadata={<span class="st">"tutorial_day"</span>: <span class="nu">1</span>, <span class="st">"hour"</span>: <span class="nu">1</span>},   <span class="cm"># any custom data you want</span>
+)
+
+<span class="fn">print</span>(response.choices[<span class="nu">0</span>].message.content)</code></pre>
+        </div>
+
+        <p>Run it:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">python 01_first_trace.py</span>
+
+<span class="bash-comment"># Expected output (your model's answer):</span>
+<span class="bash-comment"># Langfuse is an open-source LLM observability platform that helps...</span></code></pre>
+        </div>
+
+        <div class="success-box">
+          <strong>Now check your Langfuse dashboard.</strong> Go to your project → Traces. Your trace should appear within a few seconds. Click it to explore. If nothing shows up after 30 seconds, check Step 4 — the <code class="inline">LANGFUSE_BASE_URL</code> is the most common culprit.
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- STEP 6 — CONCEPT -->
+    <div class="step-section" id="step6">
+      <div class="step-header">
+        <div class="step-number">6</div>
+        <div class="step-title-block">
+          <div class="step-title">Concept: the Langfuse data model</div>
+          <div class="step-subtitle">traces · spans · generations</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Before going further, understand <em>what</em> Langfuse actually captured. Every piece of data in Langfuse lives in a hierarchy:</p>
+
+        <div class="concept-card">
+          <div class="concept-title">Data model — what was captured</div>
+          <div class="diagram">
+<span class="d-trace">TRACE</span>  <span class="d-val">← top-level container for one "user request"</span>
+<span class="d-val">│</span>
+<span class="d-val">├─</span> <span class="d-field">name</span>      <span class="d-val">"my-first-trace"</span>
+<span class="d-val">├─</span> <span class="d-field">metadata</span>  <span class="d-val">{tutorial_day: 1, hour: 1}</span>
+<span class="d-val">├─</span> <span class="d-field">timestamp</span> <span class="d-val">2026-06-05T...</span>
+<span class="d-val">│</span>
+<span class="d-val">└─</span> <span class="d-gen">GENERATION</span>  <span class="d-val">← one LLM call inside the trace</span>
+    <span class="d-val">│</span>
+    <span class="d-val">├─</span> <span class="d-field">model</span>    <span class="d-val">"llama3.2"</span>
+    <span class="d-val">├─</span> <span class="d-field">input</span>    <span class="d-val">[system msg, user msg]</span>
+    <span class="d-val">├─</span> <span class="d-field">output</span>   <span class="d-val">"Langfuse is an open-source..."</span>
+    <span class="d-val">├─</span> <span class="d-field">tokens</span>   <span class="d-val">{input: 34, output: 51}</span>
+    <span class="d-val">└─</span> <span class="d-field">latency</span>  <span class="d-val">1240ms</span>
+          </div>
+        </div>
+
+        <p>In Hour 2 you'll add <strong>spans</strong> — which sit between traces and generations and represent non-LLM work like "retrieve from database" or "call external API". For now, think of it as:</p>
+
+        <div class="concept-card">
+          <div class="concept-title">Mental model</div>
+          <div class="diagram">
+<span class="d-trace">Trace</span>    = one user interaction ("answer this question")
+<span class="d-val">Span</span>     = any step inside it (retrieval, API call, etc.)
+<span class="d-gen">Generation</span> = specifically an LLM call (has model, tokens, cost)
+          </div>
+        </div>
+
+        <div class="insight">
+          <strong>Why does this matter?</strong> When your app gets complex (RAG pipelines, agents, multi-step workflows), every step gets its own span. You can see exactly which step was slow, which one failed, and how much each LLM call cost. This is the entire point of Langfuse.
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- STEP 7 — UI TOUR -->
+    <div class="step-section" id="step7">
+      <div class="step-header">
+        <div class="step-number">7</div>
+        <div class="step-title-block">
+          <div class="step-title">Tour the Langfuse UI</div>
+          <div class="step-subtitle">what to look at in your dashboard</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>Click on your trace in the dashboard. Here's what each panel shows:</p>
+        <div class="ui-grid">
+          <div class="ui-card">
+            <div class="ui-card-icon">📥</div>
+            <div class="ui-card-title">Input / Output</div>
+            <div class="ui-card-desc">Exact messages sent and the model's full response — great for debugging prompt issues</div>
+          </div>
+          <div class="ui-card">
+            <div class="ui-card-icon">🤖</div>
+            <div class="ui-card-title">Model & Tokens</div>
+            <div class="ui-card-desc">Which model was called, how many input/output tokens used, estimated cost</div>
+          </div>
+          <div class="ui-card">
+            <div class="ui-card-icon">⏱️</div>
+            <div class="ui-card-title">Latency</div>
+            <div class="ui-card-desc">Total time and a timeline breakdown — spot bottlenecks at a glance</div>
+          </div>
+          <div class="ui-card">
+            <div class="ui-card-icon">🏷️</div>
+            <div class="ui-card-title">Metadata</div>
+            <div class="ui-card-desc">Your custom fields like <code class="inline">tutorial_day: 1</code> — searchable and filterable</div>
+          </div>
+          <div class="ui-card">
+            <div class="ui-card-icon">📊</div>
+            <div class="ui-card-title">Dashboard</div>
+            <div class="ui-card-desc">Aggregate stats across all traces — total cost, avg latency, error rate</div>
+          </div>
+          <div class="ui-card">
+            <div class="ui-card-icon">👤</div>
+            <div class="ui-card-title">Users</div>
+            <div class="ui-card-desc">Per-user breakdown once you attach <code class="inline">user_id</code> (Step 8 below)</div>
+          </div>
+        </div>
+        <p>Spend 5 minutes clicking around. Familiarity with the UI now makes everything in Hours 2 and 3 much easier to verify.</p>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- STEP 8 -->
+    <div class="step-section" id="step8">
+      <div class="step-header">
+        <div class="step-number">8</div>
+        <div class="step-title-block">
+          <div class="step-title">Attach user IDs and tags</div>
+          <div class="step-subtitle">02_with_user.py · trace context</div>
+        </div>
+      </div>
+      <div class="step-body">
+        <p>In real applications you always want to know <em>which user</em> triggered a trace. Create <code class="inline">02_with_user.py</code>:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> 02_with_user.py</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv()
+
+<span class="kw">from</span> langfuse.openai <span class="kw">import</span> OpenAI
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client
+
+<span class="cm"># Get the Langfuse client to create trace-level metadata</span>
+langfuse = <span class="fn">get_client</span>()
+
+<span class="cm"># Create a trace explicitly so we can attach user info</span>
+trace = langfuse.<span class="fn">trace</span>(
+    name=<span class="st">"user-question"</span>,
+    user_id=<span class="st">"user-123"</span>,             <span class="cm"># ties this trace to a specific user</span>
+    tags=[<span class="st">"tutorial"</span>, <span class="st">"day-1"</span>],    <span class="cm"># free-form tags for filtering</span>
+    metadata={<span class="st">"source"</span>: <span class="st">"cli"</span>},
+)
+
+<span class="cm"># Set up Ollama client pointing at local server</span>
+client = <span class="fn">OpenAI</span>(
+    base_url=os.getenv(<span class="st">"OLLAMA_BASE_URL"</span>),
+    api_key=<span class="st">"ollama"</span>,
+)
+
+response = client.chat.completions.<span class="fn">create</span>(
+    model=os.getenv(<span class="st">"OLLAMA_MODEL"</span>),
+    messages=[
+        {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Explain observability in 2 sentences."</span>},
+    ],
+    trace_id=trace.id,   <span class="cm"># links this generation to our named trace</span>
+)
+
+<span class="fn">print</span>(response.choices[<span class="nu">0</span>].message.content)
+
+<span class="cm"># Always flush at end of a script</span>
+<span class="cm"># flush() ensures all buffered events are sent before the process exits</span>
+langfuse.<span class="fn">flush</span>()</code></pre>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)">copy</button>
+          </div>
+          <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">python 02_with_user.py</span></code></pre>
+        </div>
+
+        <p>In the Langfuse dashboard you'll now see <strong>Users</strong> in the left sidebar populate with <code class="inline">user-123</code>, and tags appear as filterable chips on your trace. This is the foundation of per-user analytics.</p>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- CHECKPOINT -->
+    <div class="checkpoint">
+      <div class="checkpoint-title">✓ Hour 1 checkpoint</div>
+      <div class="check-items">
+        <div class="check-item"><span class="check-icon">✓</span> Langfuse account with API keys</div>
+        <div class="check-item"><span class="check-icon">✓</span> Ollama running locally on :11434</div>
+        <div class="check-item"><span class="check-icon">✓</span> Python venv with langfuse + openai</div>
+        <div class="check-item"><span class="check-icon">✓</span> .env configured with all keys</div>
+        <div class="check-item"><span class="check-icon">✓</span> Two traces visible in dashboard</div>
+        <div class="check-item"><span class="check-icon">✓</span> Understand trace → generation hierarchy</div>
+      </div>
+    </div>
+
+    <!-- EXERCISE -->
+    <div class="exercise">
+      <div class="exercise-header">
+        <span class="exercise-badge">MINI EXERCISE</span>
+        <span class="exercise-title">Cement it before Hour 2</span>
+      </div>
+      <div class="exercise-body">
+        <p>These two exercises take ~10 minutes and lock in the concepts. Try them before moving on:</p>
+        <ul>
+          <li><strong>Exercise 1:</strong> In <code class="inline">02_with_user.py</code>, change <code class="inline">user_id</code> to <code class="inline">"user-456"</code> and add a new tag <code class="inline">"exercise"</code>. Run it. In the UI, filter traces by that tag — can you find it?</li>
+          <li><strong>Exercise 2:</strong> In the same file, add a <em>second</em> <code class="inline">client.chat.completions.create()</code> call with a different question but the <em>same</em> <code class="inline">trace_id=trace.id</code>. Run it. See how both generations appear nested under one trace in the UI. This is how multi-step workflows look.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- NEXT -->
+    <div class="next-card">
+      <div>
+        <div class="next-label">Up next — Hour 2</div>
+        <div class="next-title">Traces, spans &amp; generations deep-dive</div>
+        <div class="next-desc">Build the data model manually so you understand exactly what's happening under the hood. Attach metadata, token counts, and handle errors.</div>
+      </div>
+      <div class="next-arrow">→</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.innerText
+    .split('\n')
+    .map(line => line.replace(/^\$\s*/, '').replace(/^#.*/, '').trim())
+    .filter(l => l)
+    .join('\n');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'copy';
+      btn.classList.remove('copied');
+    }, 1800);
+  });
+}
+
+// Highlight active sidebar item on scroll
+const sections = document.querySelectorAll('.step-section[id]');
+const sidebarItems = document.querySelectorAll('.sidebar-item[href^="#"]');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      sidebarItems.forEach(a => a.classList.remove('active'));
+      const active = document.querySelector(`.sidebar-item[href="#${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0% -60% 0%' });
+
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

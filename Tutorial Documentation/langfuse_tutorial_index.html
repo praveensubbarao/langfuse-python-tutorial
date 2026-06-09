@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse Python Tutorial — Complete 9-Hour Series</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f14;--surface:#13161e;--surface2:#1a1e28;--border:#252a38;--border2:#2e3548;--text:#e8eaf0;--muted:#6b7394;--dim:#3d4460;--accent:#7c9eff;--accent2:#a78bfa;--accent3:#34d399;--accent4:#fb923c;--accent5:#f472b6;--accent6:#facc15;--code-bg:#0a0c12;--hl:#1e2235;}
+*{margin:0;padding:0;box-sizing:border-box;}body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;font-size:16px;min-height:100vh;}
+.page{max-width:860px;margin:0 auto;padding:4rem 2rem 6rem;}
+
+/* HERO */
+.hero{text-align:center;margin-bottom:4rem;}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:1.25rem;}
+.hero h1{font-family:'Fraunces',serif;font-size:3rem;font-weight:300;line-height:1.1;margin-bottom:1.25rem;}
+.hero h1 .g1{color:var(--accent);}
+.hero h1 .g2{color:var(--accent2);}
+.hero h1 .g3{color:var(--accent3);}
+.hero h1 .g4{color:var(--accent4);}
+.hero-sub{font-size:15px;color:var(--muted);max-width:520px;margin:0 auto 2rem;line-height:1.7;}
+.hero-pills{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
+.hp{font-size:12px;font-family:'JetBrains Mono',monospace;padding:5px 14px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+
+/* QUICK START */
+.quick-start{background:var(--surface);border:1px solid rgba(52,211,153,.25);border-radius:12px;padding:2rem;margin-bottom:3rem;}
+.qs-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:1rem;}
+.qs-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+.qs-step{display:flex;gap:10px;align-items:flex-start;}
+.qs-num{width:24px;height:24px;border-radius:50%;background:rgba(52,211,153,.15);color:var(--accent3);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.qs-text{font-size:13px;color:var(--muted);line-height:1.5;}
+.qs-text strong{color:var(--text);display:block;margin-bottom:2px;}
+
+/* DAY SECTIONS */
+.day-section{margin-bottom:2.5rem;}
+.day-header{display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;}
+.day-badge{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 14px;border-radius:20px;white-space:nowrap;}
+.d1b{background:rgba(124,158,255,.12);color:var(--accent);border:1px solid rgba(124,158,255,.3);}
+.d2b{background:rgba(250,204,21,.12);color:var(--accent6);border:1px solid rgba(250,204,21,.3);}
+.d3b{background:rgba(251,146,60,.12);color:var(--accent4);border:1px solid rgba(251,146,60,.3);}
+.day-title{font-family:'Fraunces',serif;font-size:1.3rem;font-weight:500;color:var(--text);}
+.day-sub{font-size:13px;color:var(--muted);}
+
+/* HOUR CARDS */
+.hour-cards{display:grid;grid-template-columns:1fr;gap:10px;}
+.hcard{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;transition:border-color .2s;}
+.hcard:hover{border-color:var(--border2);}
+.hcard-left{flex:1;}
+.hcard-hour{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.1em;}
+.hcard-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;}
+.hcard-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+.hcard-topics{display:flex;flex-wrap:wrap;gap:5px;margin-top:.6rem;}
+.topic{font-size:10px;font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:5px;background:var(--surface2);border:1px solid var(--border2);color:var(--dim);}
+.dl-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;background:linear-gradient(135deg,rgba(124,158,255,.12),rgba(167,139,250,.12));border:1px solid rgba(124,158,255,.3);border-radius:8px;color:var(--accent);font-size:12px;font-family:'JetBrains Mono',monospace;text-decoration:none;white-space:nowrap;transition:all .2s;cursor:pointer;}
+.dl-btn:hover{background:linear-gradient(135deg,rgba(124,158,255,.2),rgba(167,139,250,.2));border-color:rgba(124,158,255,.5);}
+.dl-icon{font-size:14px;}
+
+/* FILE MAP */
+.file-map{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:2rem;margin:3rem 0;}
+.fm-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:1.5rem;}
+.fm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;}
+@media(max-width:700px){.fm-grid{grid-template-columns:1fr;}}
+.fm-day{border-left:2px solid var(--border2);padding-left:1rem;}
+.fm-day-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:.75rem;font-family:'JetBrains Mono',monospace;}
+.fm-file{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);padding:2px 0;display:block;}
+.fm-file::before{content:'';margin-right:6px;color:var(--dim);}
+
+/* TIPS */
+.tips{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2rem 0;}
+@media(max-width:600px){.tips{grid-template-columns:1fr;}}
+.tip{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:1rem;}
+.tip-icon{font-size:20px;margin-bottom:6px;}
+.tip-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;}
+.tip-text{font-size:12px;color:var(--muted);line-height:1.6;}
+
+hr.div{border:none;border-top:1px solid var(--border);margin:2.5rem 0;}
+code.il{background:var(--surface2);border:1px solid var(--border2);padding:1px 6px;border-radius:4px;font-size:12px;color:var(--accent3);font-family:'JetBrains Mono',monospace;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hero">
+    <div class="hero-eyebrow">Complete tutorial series · Ollama edition · 9 hours</div>
+    <h1>
+      <span class="g1">Langfuse</span> Python<br>
+      <span class="g2">from</span> <span class="g3">zero</span> <span class="g4">to production</span>
+    </h1>
+    <p class="hero-sub">A step-by-step hands-on tutorial covering tracing, prompt management, evaluation, datasets, and production monitoring — 100% local with Ollama. No OpenAI account needed.</p>
+    <div class="hero-pills">
+      <span class="hp">🦙 Ollama local LLM</span>
+      <span class="hp">🐍 Python 3.10+</span>
+      <span class="hp">☁️ Langfuse free tier</span>
+      <span class="hp">⏱ 3 days × 3 hrs</span>
+      <span class="hp">✓ v4 SDK</span>
+    </div>
+  </div>
+
+  <!-- QUICK START -->
+  <div class="quick-start">
+    <div class="qs-title">✓ Before you start — one-time setup</div>
+    <div class="qs-steps">
+      <div class="qs-step">
+        <div class="qs-num">1</div>
+        <div class="qs-text"><strong>Langfuse account</strong>Free at cloud.langfuse.com · Get API keys from Settings</div>
+      </div>
+      <div class="qs-step">
+        <div class="qs-num">2</div>
+        <div class="qs-text"><strong>Ollama installed</strong>ollama.com/download · Then: <code class="il">ollama pull llama3.2</code></div>
+      </div>
+      <div class="qs-step">
+        <div class="qs-num">3</div>
+        <div class="qs-text"><strong>Python env</strong><code class="il">pip install langfuse openai python-dotenv</code></div>
+      </div>
+      <div class="qs-step">
+        <div class="qs-num">4</div>
+        <div class="qs-text"><strong>.env file</strong>LANGFUSE_SECRET_KEY, PUBLIC_KEY, BASE_URL, OLLAMA_BASE_URL, OLLAMA_MODEL</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DAY 1 -->
+  <div class="day-section">
+    <div class="day-header">
+      <span class="day-badge d1b">Day 1</span>
+      <div>
+        <div class="day-title">Tracing Foundations</div>
+        <div class="day-sub">From first trace to a production-ready session-aware chatbot</div>
+      </div>
+    </div>
+    <div class="hour-cards">
+      <div class="hcard">
+        <div class="hcard-left">
+          <div class="hcard-hour">Hour 1 · 60 min</div>
+          <div class="hcard-title">Environment & First Trace</div>
+          <div class="hcard-desc">Set up Langfuse + Ollama, install the SDK, send your first trace, tour the dashboard UI.</div>
+          <div class="hcard-topics">
+            <span class="topic">langfuse.openai</span><span class="topic">trace()</span><span class="topic">user_id</span><span class="topic">tags</span><span class="topic">flush()</span>
+          </div>
+        </div>
+        <a class="dl-btn" href="langfuse_day1_hour1_ollama.html" download><span class="dl-icon">↓</span> Download</a>
+      </div>
+      <div class="hcard">
+        <div class="hcard-left">
+          <div class="hcard-hour">Hour 2 · 60 min</div>
+          <div class="hcard-title">Traces, Spans & Generations</div>
+          <div class="hcard-desc">Master the data model manually. Context managers, @observe decorator, nesting, error spans.</div>
+          <div class="hcard-topics">
+            <span class="topic">start_as_current_observation</span><span class="topic">@observe</span><span class="topic">as_type</span><span class="topic">ERROR level</span>
+          </div>
+        </div>
+        <a class="dl-btn" href="langfuse_day1_hour2_ollama.html" download><span class="dl-icon">↓</span> Download</a>
+      </div>
+      <div class="hcard">
+        <div class="hcard-left">
+          <div class="hcard-hour">Hour 3 · 60 min</div>
+          <div class="hcard-title">Sessions, Chatbot & Async</div>
+          <div class="hcard-desc">Group traces into sessions, build a real multi-turn QA chatbot, trace async functions.</div>
+          <div class="hcard-topics">
+            <span class="topic">session_id</span><span class="topic">conversation history</span><span class="topic">async @observe</span><span class="topic">Day 1 capstone</span>
+          </div>
+        </div>
+        <a class="dl-btn" href="langfuse_day1_hour3_ollama.html" download><span class="dl-icon">↓</span> Download</a>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- DAY 2 -->
+  <div class="day-section">
+    <div class="day-header">
+      <span class="day-badge d2b">Day 2</span>
+      <div>
+        <div class="day-title">Prompts & Evaluation</div>
+        <div class="day-sub">Version prompts, collect feedback, automate quality evaluation</div>
+      </div>
+    </div>
+    <div class="hour-cards">
+      <div class="hcard">
+        <div class="hcard-left">
+          <div class="hcard-hour">Hour 1 · 60 min</div>
+          <div class="hcard-title">Prompt Management</div>
+          <div class="hcard-desc">Version prompts, deploy without code changes, link prompt versions to every trace.</div>
+          <div class="hcard-topics">
+            <span class="topic">create_prompt()</span><span class="topic">get_prompt()</span><span class="topic">compile()</span><span class="topic">production label</span><span class="topic">config</span>
+          </div>
+        </div>
+        <a class="dl-btn" href="langfuse_day2_hour1_ollama.html" download><span class="dl-icon">↓</span> Download</a>
+      </div>
+      <div class="hcard">
+        <div class="hcard-left">
+          <div class="hcard-hour">Hour 2 · 60 min</div>
+          <div class="hcard-title">Scoring & User Feedback</div>
+          <div class="hcard-desc">All 4 score types. Thumbs up/down pattern. Async feedback. Review queue via filters.</div>
+          <div class="hcard-topics">
+            <span class="topic">NUMERIC</span><span class="topic">BOOLEAN</span><span class="topic">CATEGORICAL</span><span class="topic">get_current_trace_id</span><span class="topic">create_score()</span>
+          </div>
+        </div>
+        <a class="dl-btn" href="langfuse_day2_hour2_ollama.html" download><span class="dl-icon">↓</span> Download</a>
+      </div>
+      <div class="hcard">
+        <div class="hcard-left">
+          <div class="hcard-hour">Hour 3 · 60 min</div>
+          <div class="hcard-title">LLM-as-a-Judge Evaluators</div>
+          <div class="hcard-desc">Configure automated evaluators in UI, write SDK judges, deterministic code evaluators.</div>
+          <div class="hcard-topics">
+            <span class="topic">LLM-as-judge</span><span class="topic">Fast Mode</span><span class="topic">code evaluators</span><span class="topic">JSON judge</span><span class="topic">keyword eval</span>
+          </div>
+        </div>
+        <a class="dl-btn" href="langfuse_day2_hour3_ollama.html" download><span class="dl-icon">↓</span> Download</a>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- DAY 3 -->
+  <div class="day-section">
+    <div class="day-header">
+      <span class="day-badge d3b">Day 3</span>
+      <div>
+        <div class="day-title">Datasets, Integrations & Production</div>
+        <div class="day-sub">Systematic testing, framework integrations, production dashboards</div>
+      </div>
+    </div>
+    <div class="hour-cards">
+      <div class="hcard">
+        <div class="hcard-left">
+          <div class="hcard-hour">Hours 1 + 2 + 3 · 180 min — combined in one file</div>
+          <div class="hcard-title">Datasets · Integrations · Production Monitoring</div>
+          <div class="hcard-desc">Build evaluation datasets from traces, run A/B experiments, wire in LangChain + LiteLLM + FastAPI, set up cost tracking and production dashboards. Ends with the 9-hour final capstone.</div>
+          <div class="hcard-topics">
+            <span class="topic">create_dataset()</span><span class="topic">item.observe()</span><span class="topic">LangChain callback</span><span class="topic">LiteLLM</span>
+            <span class="topic">FastAPI</span><span class="topic">cost tracking</span><span class="topic">metrics API</span><span class="topic">self-hosting</span>
+          </div>
+        </div>
+        <a class="dl-btn" href="langfuse_day3_all_hours_ollama.html" download><span class="dl-icon">↓</span> Download</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILE MAP -->
+  <div class="file-map">
+    <div class="fm-title">Python files you'll write — complete map</div>
+    <div class="fm-grid">
+      <div class="fm-day">
+        <div class="fm-day-title" style="color:var(--accent);">Day 1 · 11 files</div>
+        <span class="fm-file">01_first_trace.py</span>
+        <span class="fm-file">02_with_user.py</span>
+        <span class="fm-file">03_context_managers.py</span>
+        <span class="fm-file">04_observe_decorator.py</span>
+        <span class="fm-file">05_rich_generation.py</span>
+        <span class="fm-file">06_error_handling.py</span>
+        <span class="fm-file">07_qa_architect_pipeline.py</span>
+        <span class="fm-file">08_sessions.py</span>
+        <span class="fm-file">09_chatbot.py</span>
+        <span class="fm-file">10_async_chatbot.py</span>
+        <span class="fm-file">11_capstone.py</span>
+      </div>
+      <div class="fm-day">
+        <div class="fm-day-title" style="color:var(--accent6);">Day 2 · 9 files</div>
+        <span class="fm-file">day2/01_create_prompts.py</span>
+        <span class="fm-file">day2/02_use_prompts.py</span>
+        <span class="fm-file">day2/03_linked_traces.py</span>
+        <span class="fm-file">day2/04_deploy_workflow.py</span>
+        <span class="fm-file">day2/05_prompt_chatbot.py</span>
+        <span class="fm-file">day2/01_numeric_scores.py</span>
+        <span class="fm-file">day2/02_user_feedback.py</span>
+        <span class="fm-file">day2/03_categorical_scores.py</span>
+        <span class="fm-file">day2/04_scored_chatbot.py</span>
+        <span class="fm-file">day2/01_custom_judge.py</span>
+        <span class="fm-file">day2/02_code_evals.py</span>
+      </div>
+      <div class="fm-day">
+        <div class="fm-day-title" style="color:var(--accent4);">Day 3 · 9 files</div>
+        <span class="fm-file">day3/01_build_dataset.py</span>
+        <span class="fm-file">day3/02_run_experiment.py</span>
+        <span class="fm-file">day3/03_promote_traces.py</span>
+        <span class="fm-file">day3/04_langchain_cb.py</span>
+        <span class="fm-file">day3/05_litellm.py</span>
+        <span class="fm-file">day3/06_fastapi_app.py</span>
+        <span class="fm-file">day3/07_cost_tracking.py</span>
+        <span class="fm-file">day3/08_metrics_api.py</span>
+        <span class="fm-file">day3/09_final_capstone.py</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIPS -->
+  <div class="tips">
+    <div class="tip">
+      <div class="tip-icon">⚠️</div>
+      <div class="tip-title">Double generation bug</div>
+      <div class="tip-text">Never use <code class="il">langfuse.openai</code> AND <code class="il">as_type="generation"</code> on the same LLM call. Pick one. The drop-in wrapper is Method A, @observe with plain openai is Method B.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">📍</div>
+      <div class="tip-title">propagate_attributes placement</div>
+      <div class="tip-text">Must wrap the <em>call site</em> of your top-level <code class="il">@observe</code> function — not inside it. Tags and user_id won't appear in UI if placed incorrectly.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">🔑</div>
+      <div class="tip-title">LANGFUSE_BASE_URL region</div>
+      <div class="tip-text">US → <code class="il">us.cloud.langfuse.com</code> · EU → <code class="il">cloud.langfuse.com</code> · JP → <code class="il">jp.cloud.langfuse.com</code>. Wrong region = silent 401 errors.</div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">🔢</div>
+      <div class="tip-title">BOOLEAN score value</div>
+      <div class="tip-text">Must be <code class="il">value=0</code> or <code class="il">value=1</code> (float) with <code class="il">data_type="BOOLEAN"</code> explicitly set. Using Python's <code class="il">True/False</code> causes silent type errors.</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border);font-size:12px;color:var(--dim);">
+    Langfuse Python Tutorial · Ollama Edition · 9 hours · All rights to Langfuse docs belong to Langfuse GmbH
+  </div>
+
+</div>
+</body>
+</html>

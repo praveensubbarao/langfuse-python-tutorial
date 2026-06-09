@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse · Day 3 · Datasets · Experiments · Production</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f14;--surface:#13161e;--surface2:#1a1e28;--border:#252a38;--border2:#2e3548;--text:#e8eaf0;--muted:#6b7394;--dim:#3d4460;--accent:#7c9eff;--accent2:#a78bfa;--accent3:#34d399;--accent4:#fb923c;--accent5:#f472b6;--accent6:#facc15;--code-bg:#0a0c12;--hl:#1e2235;}
+*{margin:0;padding:0;box-sizing:border-box;}body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;font-size:16px;}
+header{border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;background:rgba(13,15,20,.95);backdrop-filter:blur(14px);z-index:100;display:flex;align-items:center;justify-content:space-between;height:56px;}
+.logo-pill{background:linear-gradient(135deg,#fb923c,#f472b6);color:#fff;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;}
+.hh{display:flex;align-items:center;gap:12px;}.ht{font-size:13px;color:var(--muted);}
+.chips{display:flex;gap:5px;flex-wrap:wrap;}
+.chip{font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 9px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+.chip.done{border-color:var(--accent3);color:var(--accent3);background:rgba(52,211,153,.07);}
+.chip.d3h1{border-color:var(--accent4);color:var(--accent4);background:rgba(251,146,60,.08);}
+.chip.d3h2{border-color:var(--accent2);color:var(--accent2);background:rgba(167,139,250,.08);}
+.chip.d3h3{border-color:var(--accent5);color:var(--accent5);background:rgba(244,114,182,.08);}
+.layout{display:flex;min-height:calc(100vh - 56px);}
+aside{width:245px;flex-shrink:0;border-right:1px solid var(--border);padding:1.5rem 0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;}
+.sbs{padding:0 1.25rem;margin-bottom:1.5rem;}.sbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:.6rem;}
+.sbi{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;font-size:12.5px;color:var(--muted);text-decoration:none;margin-bottom:2px;transition:all .15s;}
+.sbi:hover{background:var(--surface2);color:var(--text);}.sbi.active{background:var(--hl);color:var(--accent4);}
+.dot{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;flex-shrink:0;}
+.d1{background:rgba(251,146,60,.2);color:var(--accent4);}.d2{background:rgba(167,139,250,.2);color:var(--accent2);}.d3{background:rgba(244,114,182,.2);color:var(--accent5);}.todo{background:var(--surface2);color:var(--dim);}
+.hour-sep{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;padding:4px 10px;margin-top:8px;}
+main{flex:1;padding:3rem 3.5rem;max-width:900px;}
+.hero{margin-bottom:3rem;padding-bottom:2.5rem;border-bottom:1px solid var(--border);}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+.eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent4);}
+.hero h1{font-family:'Fraunces',serif;font-size:2.4rem;font-weight:300;line-height:1.15;color:var(--text);margin-bottom:1rem;}
+.hero h1 em{font-style:italic;}
+.hero h1 .e1{color:var(--accent4);}.hero h1 .e2{color:var(--accent2);}.hero h1 .e3{color:var(--accent5);}
+.hero-sub{font-size:15px;color:var(--muted);max-width:580px;line-height:1.7;}
+.hour-card{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1rem;}
+.hc-badge{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap;margin-top:2px;}
+.hc1{background:rgba(251,146,60,.12);color:var(--accent4);border:1px solid rgba(251,146,60,.3);}
+.hc2{background:rgba(167,139,250,.12);color:var(--accent2);border:1px solid rgba(167,139,250,.3);}
+.hc3{background:rgba(244,114,182,.12);color:var(--accent5);border:1px solid rgba(244,114,182,.3);}
+.hc-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:500;color:var(--text);margin-bottom:4px;}
+.hc-desc{font-size:13px;color:var(--muted);line-height:1.6;}
+.hc-files{display:flex;flex-wrap:wrap;gap:6px;margin-top:.75rem;}
+.hc-file{font-size:11px;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:6px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted);}
+.step{margin-bottom:3rem;}.shdr{display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;}
+.snum1{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent4),var(--accent6));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#000;flex-shrink:0;}
+.snum2{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.snum3{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent5),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.stitle{font-family:'Fraunces',serif;font-size:1.2rem;font-weight:500;color:var(--text);line-height:1.2;}
+.ssub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.sbody{padding-left:50px;}p{margin-bottom:1rem;color:var(--muted);font-size:15px;}p strong{color:var(--text);font-weight:500;}
+.cb{background:var(--code-bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin:1.25rem 0;}
+.ch{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;}
+.cf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.lt{font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:700;}
+.lb{background:#0f2018;color:#34d399;}.lp{background:#1a2540;color:#7c9eff;}.lo{background:#201509;color:#fb923c;}.ly{background:#1c1805;color:#facc15;}
+.copy{background:none;border:1px solid var(--border2);color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:5px;cursor:pointer;transition:all .15s;}
+.copy:hover{background:var(--surface2);color:var(--text);}.copy.copied{color:var(--accent3);border-color:var(--accent3);}
+pre{padding:1.25rem 1.5rem;overflow-x:auto;line-height:1.7;}code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+code.il{background:var(--surface2);border:1px solid var(--border2);padding:1px 6px;border-radius:4px;font-size:12.5px;color:var(--accent4);}
+.kw{color:#c792ea;}.fn{color:#82aaff;}.st{color:#c3e88d;}.cm{color:#4a5568;font-style:italic;}.nu{color:#f78c6c;}.ty{color:#ffcb6b;}.at{color:#fb923c;}
+.bp{color:var(--accent3);user-select:none;}.bc{color:var(--dim);font-style:italic;}
+.insight{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.2);border-left:3px solid var(--accent4);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.insight strong{color:var(--accent4);font-weight:500;}
+.note{background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.2);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.note strong{color:var(--accent2);font-weight:500;}
+.warn{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.2);border-left:3px solid var(--accent4);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.warn strong{color:var(--accent4);font-weight:500;}
+.success{background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.2);border-left:3px solid var(--accent3);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.success strong{color:var(--accent3);font-weight:500;}
+.blue{background:rgba(124,158,255,.05);border:1px solid rgba(124,158,255,.2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.blue strong{color:var(--accent);font-weight:500;}
+.pink{background:rgba(244,114,182,.05);border:1px solid rgba(244,114,182,.2);border-left:3px solid var(--accent5);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+.pink strong{color:var(--accent5);font-weight:500;}
+table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:13.5px;}
+th{text-align:left;padding:10px 14px;background:var(--surface);border:1px solid var(--border2);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:500;}
+td{padding:10px 14px;border:1px solid var(--border);color:var(--muted);vertical-align:top;line-height:1.5;font-size:13px;}
+tr:hover td{background:var(--surface);}td strong{color:var(--text);font-weight:500;}
+.hour-divider{display:flex;align-items:center;gap:12px;margin:3.5rem 0 2.5rem;padding:1.25rem 1.5rem;border-radius:10px;border:1px solid var(--border2);}
+.hd-badge{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:6px 16px;border-radius:20px;white-space:nowrap;}
+.hd1{background:rgba(251,146,60,.12);color:var(--accent4);border:1px solid rgba(251,146,60,.3);}
+.hd2{background:rgba(167,139,250,.12);color:var(--accent2);border:1px solid rgba(167,139,250,.3);}
+.hd3{background:rgba(244,114,182,.12);color:var(--accent5);border:1px solid rgba(244,114,182,.3);}
+.hd-title{font-family:'Fraunces',serif;font-size:1.2rem;font-weight:500;color:var(--text);}
+.hd-sub{font-size:13px;color:var(--muted);}
+.exercise{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin-top:1.5rem;}
+.ex-hdr{display:flex;align-items:center;gap:10px;margin-bottom:1rem;}
+.ex-badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;}
+.ex-b1{background:rgba(251,146,60,.1);color:var(--accent4);border:1px solid rgba(251,146,60,.3);}
+.ex-b2{background:rgba(167,139,250,.1);color:var(--accent2);border:1px solid rgba(167,139,250,.3);}
+.ex-b3{background:rgba(244,114,182,.1);color:var(--accent5);border:1px solid rgba(244,114,182,.3);}
+.ex-title{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:500;color:var(--text);}
+.ex-body{font-size:14px;color:var(--muted);line-height:1.7;}.ex-body ul{padding-left:1.25rem;margin-top:.5rem;}.ex-body li{margin-bottom:8px;}
+.final-banner{background:linear-gradient(135deg,rgba(251,146,60,.08),rgba(167,139,250,.08),rgba(244,114,182,.08));border:1px solid rgba(251,146,60,.3);border-radius:14px;padding:2.5rem;margin-top:3rem;text-align:center;}
+.fb-title{font-family:'Fraunces',serif;font-size:2rem;font-weight:300;color:var(--text);margin-bottom:.5rem;}
+.fb-sub{font-size:14px;color:var(--muted);margin-bottom:2rem;max-width:500px;margin-left:auto;margin-right:auto;}
+.fb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.5rem;}
+@media(max-width:700px){.fb-grid{grid-template-columns:1fr;}}
+.fb-card{background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:8px;padding:1rem;}
+.fb-card-day{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px;}
+.fb-card-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;}
+.fb-card-items{font-size:12px;color:var(--muted);line-height:1.7;}
+hr.div{border:none;border-top:1px solid var(--border);margin:2.5rem 0;}
+::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+@media(max-width:768px){aside{display:none;}main{padding:2rem 1.5rem;}.hero h1{font-size:1.8rem;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hh"><span class="logo-pill">DAY 3</span><span class="ht">Langfuse · Datasets · Experiments · Production</span></div>
+  <div class="chips">
+    <span class="chip done">Day 1 ✓</span><span class="chip done">Day 2 ✓</span>
+    <span class="chip d3h1">D3·H1</span><span class="chip d3h2">D3·H2</span><span class="chip d3h3">D3·H3</span>
+  </div>
+</header>
+<div class="layout">
+<aside>
+  <div class="sbs">
+    <div class="sbl">Hour 1 · Datasets</div>
+    <a class="sbi active" href="#h1s1"><span class="dot d1">1</span> What are datasets?</a>
+    <a class="sbi" href="#h1s2"><span class="dot d1">2</span> Build dataset from traces</a>
+    <a class="sbi" href="#h1s3"><span class="dot d1">3</span> Run experiments via SDK</a>
+    <a class="sbi" href="#h1s4"><span class="dot d1">4</span> Compare runs in UI</a>
+  </div>
+  <div class="sbs">
+    <div class="sbl">Hour 2 · Integrations</div>
+    <a class="sbi" href="#h2s1"><span class="dot d2">1</span> LangChain callback</a>
+    <a class="sbi" href="#h2s2"><span class="dot d2">2</span> LiteLLM proxy</a>
+    <a class="sbi" href="#h2s3"><span class="dot d2">3</span> OpenTelemetry</a>
+    <a class="sbi" href="#h2s4"><span class="dot d2">4</span> FastAPI integration</a>
+  </div>
+  <div class="sbs">
+    <div class="sbl">Hour 3 · Production</div>
+    <a class="sbi" href="#h3s1"><span class="dot d3">1</span> Cost & token tracking</a>
+    <a class="sbi" href="#h3s2"><span class="dot d3">2</span> Custom dashboards</a>
+    <a class="sbi" href="#h3s3"><span class="dot d3">3</span> Metrics API</a>
+    <a class="sbi" href="#h3s4"><span class="dot d3">4</span> Self-hosting overview</a>
+    <a class="sbi" href="#h3s5"><span class="dot d3">5</span> Course complete 🎉</a>
+  </div>
+</aside>
+<main>
+
+  <div class="hero">
+    <div class="eyebrow">Day 3 · All 3 Hours</div>
+    <h1><span class="e1">Datasets</span> · <span class="e2">Integrations</span><br>&amp; <span class="e3">Production</span></h1>
+    <p class="hero-sub">Day 3 takes everything you've built to production scale: systematic testing with datasets and experiments, framework integrations, and production monitoring dashboards.</p>
+  </div>
+
+  <!-- Hour overview -->
+  <div class="hour-card">
+    <span class="hc-badge hc1">Hour 1</span>
+    <div>
+      <div class="hc-title">Datasets &amp; Experiments</div>
+      <div class="hc-desc">Build golden evaluation datasets from your production traces. Run systematic experiments comparing prompt versions or models. See results side-by-side in the UI before shipping any change.</div>
+      <div class="hc-files">
+        <span class="hc-file">01_build_dataset.py</span>
+        <span class="hc-file">02_run_experiment.py</span>
+        <span class="hc-file">03_compare_runs.py</span>
+      </div>
+    </div>
+  </div>
+  <div class="hour-card">
+    <span class="hc-badge hc2">Hour 2</span>
+    <div>
+      <div class="hc-title">Framework Integrations</div>
+      <div class="hc-desc">Wire Langfuse into LangChain, LiteLLM, and FastAPI — zero manual instrumentation needed. Understand the OpenTelemetry foundation that makes all integrations work.</div>
+      <div class="hc-files">
+        <span class="hc-file">04_langchain_cb.py</span>
+        <span class="hc-file">05_litellm.py</span>
+        <span class="hc-file">06_fastapi_app.py</span>
+      </div>
+    </div>
+  </div>
+  <div class="hour-card">
+    <span class="hc-badge hc3">Hour 3</span>
+    <div>
+      <div class="hc-title">Production Monitoring</div>
+      <div class="hc-desc">Set up cost tracking, build custom dashboards, pull metrics via the API, and understand self-hosting. Complete the 9-hour course with a production-grade monitoring setup.</div>
+      <div class="hc-files">
+        <span class="hc-file">07_cost_tracking.py</span>
+        <span class="hc-file">08_metrics_api.py</span>
+        <span class="hc-file">09_final_capstone.py</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ HOUR 1 ═══════════════════════ -->
+  <div class="hour-divider" id="h1s1">
+    <span class="hd-badge hd1">Hour 1</span>
+    <div><div class="hd-title">Datasets &amp; Experiments</div><div class="hd-sub">systematic testing before you ship</div></div>
+  </div>
+
+  <div class="step">
+    <div class="shdr"><div class="snum1">1</div><div>
+      <div class="stitle">What are datasets and why do they matter?</div>
+      <div class="ssub">from ad-hoc testing to reproducible benchmarks</div>
+    </div></div>
+    <div class="sbody">
+      <p>Right now your testing is ad-hoc — you run the chatbot, eyeball the answers, and decide if a prompt change is better. Datasets replace that guesswork with a repeatable benchmark.</p>
+      <table>
+        <thead><tr><th>Concept</th><th>What it is</th><th>Analogy</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Dataset</strong></td><td>A named collection of input/expected-output pairs. Each item is one test case.</td><td>Your test suite</td></tr>
+          <tr><td><strong>Dataset Run</strong></td><td>Running your LLM app against every item in a dataset. Creates one trace per item.</td><td>Running pytest</td></tr>
+          <tr><td><strong>Experiment</strong></td><td>Multiple dataset runs you compare side by side — e.g. prompt v1 vs v2.</td><td>A/B test with stats</td></tr>
+        </tbody>
+      </table>
+      <div class="insight">
+        <strong>The workflow:</strong> Collect production traces with good/bad scores → promote the good ones into a dataset → run experiments that compare prompt versions against that dataset → pick the winner using score aggregates. This replaces "feels better" with "scores 12% higher on completeness across 50 real user questions."
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h1s2">
+    <div class="shdr"><div class="snum1">2</div><div>
+      <div class="stitle">Build a dataset from traces</div>
+      <div class="ssub">day3/01_build_dataset.py</div>
+    </div></div>
+    <div class="sbody">
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/01_build_dataset.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client
+
+langfuse = <span class="fn">get_client</span>()
+
+<span class="cm"># ── 1. Create the dataset ─────────────────────────────────────────</span>
+dataset = langfuse.<span class="fn">create_dataset</span>(
+    name=<span class="st">"qa-architect-eval-v1"</span>,
+    description=<span class="st">"Golden QA Architect questions with expected answer criteria"</span>,
+    metadata={<span class="st">"created_by"</span>: <span class="st">"tutorial-day3"</span>, <span class="st">"version"</span>: <span class="st">"1"</span>},
+)
+<span class="fn">print</span>(<span class="st">f"✓ Dataset created: {dataset.name}"</span>)
+
+<span class="cm"># ── 2. Add items (input + expected output criteria) ───────────────</span>
+items = [
+    {
+        <span class="st">"input"</span>:    {<span class="st">"question"</span>: <span class="st">"What is boundary value analysis?"</span>},
+        <span class="st">"expected"</span>: <span class="st">"Should include: definition, boundary examples (min-1, min, min+1), practical use case"</span>,
+        <span class="st">"metadata"</span>: {<span class="st">"topic"</span>: <span class="st">"test-design"</span>, <span class="st">"difficulty"</span>: <span class="st">"beginner"</span>},
+    },
+    {
+        <span class="st">"input"</span>:    {<span class="st">"question"</span>: <span class="st">"How do you build a regression test suite?"</span>},
+        <span class="st">"expected"</span>: <span class="st">"Should include: test selection criteria, automation strategy, maintenance approach"</span>,
+        <span class="st">"metadata"</span>: {<span class="st">"topic"</span>: <span class="st">"test-strategy"</span>, <span class="st">"difficulty"</span>: <span class="st">"intermediate"</span>},
+    },
+    {
+        <span class="st">"input"</span>:    {<span class="st">"question"</span>: <span class="st">"What is exploratory testing and when is it most valuable?"</span>},
+        <span class="st">"expected"</span>: <span class="st">"Should include: definition, comparison to scripted testing, when to use, session-based approach"</span>,
+        <span class="st">"metadata"</span>: {<span class="st">"topic"</span>: <span class="st">"test-types"</span>, <span class="st">"difficulty"</span>: <span class="st">"intermediate"</span>},
+    },
+    {
+        <span class="st">"input"</span>:    {<span class="st">"question"</span>: <span class="st">"How do you measure test coverage effectively?"</span>},
+        <span class="st">"expected"</span>: <span class="st">"Should include: coverage metrics, tools, what coverage doesn't tell you, risk-based approach"</span>,
+        <span class="st">"metadata"</span>: {<span class="st">"topic"</span>: <span class="st">"metrics"</span>, <span class="st">"difficulty"</span>: <span class="st">"advanced"</span>},
+    },
+    {
+        <span class="st">"input"</span>:    {<span class="st">"question"</span>: <span class="st">"Explain the test pyramid and why it matters for CI/CD."</span>},
+        <span class="st">"expected"</span>: <span class="st">"Should include: unit/integration/E2E layers, ratios, speed vs confidence tradeoff, CI/CD implications"</span>,
+        <span class="st">"metadata"</span>: {<span class="st">"topic"</span>: <span class="st">"architecture"</span>, <span class="st">"difficulty"</span>: <span class="st">"advanced"</span>},
+    },
+]
+
+<span class="kw">for</span> item <span class="kw">in</span> items:
+    langfuse.<span class="fn">create_dataset_item</span>(
+        dataset_name=dataset.name,
+        input=item[<span class="st">"input"</span>],
+        expected_output=item[<span class="st">"expected"</span>],
+        metadata=item[<span class="st">"metadata"</span>],
+    )
+    <span class="fn">print</span>(<span class="st">f"  + Added: {item['input']['question'][:50]}..."</span>)
+
+langfuse.<span class="fn">flush</span>()
+<span class="fn">print</span>(<span class="st">f"\n✓ {len(items)} items added → Langfuse UI → Datasets → {dataset.name}"</span>)
+</code></pre>
+      </div>
+      <div class="cb"><div class="ch"><span class="cf"><span class="lt lb">BASH</span></span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> mkdir day3 && cd day3
+<span class="bp">$</span> python 01_build_dataset.py</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h1s3">
+    <div class="shdr"><div class="snum1">3</div><div>
+      <div class="stitle">Run experiments — compare prompt versions</div>
+      <div class="ssub">day3/02_run_experiment.py</div>
+    </div></div>
+    <div class="sbody">
+      <p>An experiment runs your LLM app against every dataset item and optionally scores the outputs. You then compare two runs side-by-side to decide which prompt version wins.</p>
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/02_run_experiment.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, json, re
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+<span class="cm"># ── Two prompt versions to compare ───────────────────────────────</span>
+PROMPT_V1 = <span class="st">"You are a QA Architect. Answer the question clearly."</span>
+
+PROMPT_V2 = (
+    <span class="st">"You are a senior QA Architect with 20 years of experience. "</span>
+    <span class="st">"Structure every answer with: 1) Definition 2) When/Why to use "</span>
+    <span class="st">"3) Practical example 4) Common pitfalls. Be concise but complete."</span>
+)
+
+
+<span class="kw">def</span> <span class="fn">run_llm</span>(system: str, question: str) -> str:
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+        temperature=<span class="nu">0.3</span>,
+    )
+    <span class="kw">return</span> response.choices[<span class="nu">0</span>].message.content
+
+
+<span class="kw">def</span> <span class="fn">eval_against_expected</span>(answer: str, expected: str) -> float:
+    <span class="cm">"""Simple keyword coverage: how many expected criteria appear in answer."""</span>
+    criteria = [c.<span class="fn">strip</span>() <span class="kw">for</span> c <span class="kw">in</span> expected.<span class="fn">split</span>(<span class="st">","</span>)]
+    answer_lower = answer.lower()
+    hits = <span class="fn">sum</span>(<span class="nu">1</span> <span class="kw">for</span> c <span class="kw">in</span> criteria
+               <span class="kw">if</span> <span class="fn">any</span>(word <span class="kw">in</span> answer_lower <span class="kw">for</span> word <span class="kw">in</span> c.lower().<span class="fn">split</span>()))
+    <span class="kw">return</span> <span class="fn">round</span>(hits / <span class="fn">max</span>(<span class="fn">len</span>(criteria), <span class="nu">1</span>), <span class="nu">3</span>)
+
+
+<span class="kw">def</span> <span class="fn">run_experiment</span>(run_name: str, system_prompt: str):
+    <span class="fn">print</span>(<span class="st">f"\n{'='*50}"</span>)
+    <span class="fn">print</span>(<span class="st">f"Running experiment: {run_name}"</span>)
+    <span class="fn">print</span>(<span class="st">f"{'='*50}"</span>)
+
+    dataset = langfuse.<span class="fn">get_dataset</span>(<span class="st">"qa-architect-eval-v1"</span>)
+    scores  = []
+
+    <span class="kw">for</span> item <span class="kw">in</span> dataset.items:
+        question = item.input[<span class="st">"question"</span>]
+        expected = item.expected_output <span class="kw">or</span> <span class="st">""</span>
+
+        <span class="kw">with</span> item.<span class="fn">observe</span>(run_name=run_name) <span class="kw">as</span> trace_id:
+            <span class="cm"># All LLM calls inside this block are linked to the dataset item</span>
+            answer = <span class="fn">run_llm</span>(system_prompt, question)
+
+            <span class="cm"># Score: how well does the answer cover expected criteria?</span>
+            coverage = <span class="fn">eval_against_expected</span>(answer, expected)
+            word_count = <span class="fn">len</span>(answer.<span class="fn">split</span>())
+            scores.<span class="fn">append</span>(coverage)
+
+            <span class="cm"># Push score to Langfuse (shows in experiment comparison view)</span>
+            langfuse.<span class="fn">create_score</span>(
+                name=<span class="st">"criteria_coverage"</span>,
+                value=coverage,
+                data_type=<span class="st">"NUMERIC"</span>,
+                trace_id=trace_id,
+                comment=<span class="st">f"{word_count} words"</span>,
+            )
+
+            <span class="fn">print</span>(<span class="st">f"  Q: {question[:50]}..."</span>)
+            <span class="fn">print</span>(<span class="st">f"  Score: {coverage} | Words: {word_count}"</span>)
+
+    avg = <span class="fn">round</span>(<span class="fn">sum</span>(scores) / <span class="fn">len</span>(scores), <span class="nu">3</span>)
+    <span class="fn">print</span>(<span class="st">f"\n  Average criteria_coverage: {avg}"</span>)
+    <span class="kw">return</span> avg
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    avg_v1 = <span class="fn">run_experiment</span>(<span class="st">"prompt-v1-baseline"</span>, PROMPT_V1)
+    avg_v2 = <span class="fn">run_experiment</span>(<span class="st">"prompt-v2-structured"</span>, PROMPT_V2)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">f"\n{'='*50}"</span>)
+    <span class="fn">print</span>(<span class="st">f"v1 avg: {avg_v1} | v2 avg: {avg_v2}"</span>)
+    <span class="fn">print</span>(<span class="st">f"Winner: {'v2 (+' + str(round((avg_v2-avg_v1)*100))+'%)' if avg_v2>avg_v1 else 'v1'}"</span>)
+    <span class="fn">print</span>(<span class="st">"\n✓ Check Langfuse → Datasets → qa-architect-eval-v1 → Runs tab"</span>)
+    <span class="fn">print</span>(<span class="st">"  Compare the two runs side-by-side in the UI"</span>)
+</code></pre>
+      </div>
+      <div class="cb"><div class="ch"><span class="cf"><span class="lt lb">BASH</span></span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 02_run_experiment.py</code></pre>
+      </div>
+      <div class="success">
+        <strong>In the dashboard:</strong> Datasets → qa-architect-eval-v1 → Runs tab. You'll see both runs side by side with average scores. Click any row to compare the exact outputs for the same question under v1 vs v2. This is how you make data-driven prompt decisions.
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h1s4">
+    <div class="shdr"><div class="snum1">4</div><div>
+      <div class="stitle">Add items from production traces</div>
+      <div class="ssub">day3/03_promote_traces.py — production → golden dataset</div>
+    </div></div>
+    <div class="sbody">
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/03_promote_traces.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+load_dotenv(<span class="st">"../.env"</span>)
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client
+
+langfuse = <span class="fn">get_client</span>()
+
+<span class="cm"># Fetch traces with high user_feedback scores from the last 7 days
+# These are your "golden" examples — users said these were helpful</span>
+traces = langfuse.<span class="fn">fetch_traces</span>(
+    tags=[<span class="st">"qa"</span>],
+    limit=<span class="nu">20</span>,
+).data
+
+<span class="fn">print</span>(<span class="st">f"Found {len(traces)} traces to review"</span>)
+
+promoted = <span class="nu">0</span>
+<span class="kw">for</span> trace <span class="kw">in</span> traces:
+    <span class="cm"># Check if this trace has a positive user_feedback score</span>
+    scores = langfuse.<span class="fn">fetch_scores</span>(trace_id=trace.id, name=<span class="st">"user_feedback"</span>).data
+    <span class="kw">if</span> <span class="kw">not</span> scores:
+        <span class="kw">continue</span>
+
+    <span class="kw">if</span> scores[<span class="nu">0</span>].value == <span class="nu">1</span>:   <span class="cm"># user gave thumbs up</span>
+        <span class="cm"># Promote this trace's input to the dataset</span>
+        langfuse.<span class="fn">create_dataset_item</span>(
+            dataset_name=<span class="st">"qa-architect-eval-v1"</span>,
+            input={<span class="st">"question"</span>: trace.input},
+            expected_output=trace.output,     <span class="cm"># use actual good output as reference</span>
+            metadata={
+                <span class="st">"source"</span>: <span class="st">"production-trace"</span>,
+                <span class="st">"trace_id"</span>: trace.id,
+                <span class="st">"promoted_from"</span>: <span class="st">"user-thumbs-up"</span>,
+            },
+        )
+        promoted += <span class="nu">1</span>
+        <span class="fn">print</span>(<span class="st">f"  + Promoted trace {trace.id[:12]}..."</span>)
+
+langfuse.<span class="fn">flush</span>()
+<span class="fn">print</span>(<span class="st">f"\n✓ Promoted {promoted} production traces to dataset"</span>)
+<span class="fn">print</span>(<span class="st">"  Dataset grows organically as users give positive feedback"</span>)
+</code></pre>
+      </div>
+      <div class="insight">
+        <strong>The flywheel:</strong> Users flag good responses → those go into your dataset → you run experiments against the dataset → better prompt ships → more good responses → bigger dataset. This is the LLM quality improvement flywheel that Langfuse is designed to enable.
+      </div>
+
+      <div class="exercise">
+        <div class="ex-hdr"><span class="ex-badge ex-b1">H1 EXERCISE</span><span class="ex-title">Run a 3-way experiment</span></div>
+        <div class="ex-body"><ul>
+          <li>Create a third prompt <code class="il">PROMPT_V3</code> with an even more structured format (add "5) Next steps" section).</li>
+          <li>Add it to <code class="il">02_run_experiment.py</code> as a third run named <code class="il">"prompt-v3-extended"</code>.</li>
+          <li>Compare all three in the Datasets → Runs tab. Does more structure always help, or does v2's sweet-spot win?</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ HOUR 2 ═══════════════════════ -->
+  <div class="hour-divider" id="h2s1">
+    <span class="hd-badge hd2">Hour 2</span>
+    <div><div class="hd-title">Framework Integrations</div><div class="hd-sub">LangChain · LiteLLM · FastAPI — zero manual instrumentation</div></div>
+  </div>
+
+  <div class="step">
+    <div class="shdr"><div class="snum2">1</div><div>
+      <div class="stitle">LangChain integration</div>
+      <div class="ssub">day3/04_langchain_cb.py — one import, full tracing</div>
+    </div></div>
+    <div class="sbody">
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> install</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> pip install langchain langchain-community langchain-openai</code></pre>
+      </div>
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/04_langchain_cb.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="cm"># ── Langfuse LangChain callback ───────────────────────────────────</span>
+<span class="kw">from</span> langfuse.callback <span class="kw">import</span> CallbackHandler
+
+langfuse_handler = <span class="fn">CallbackHandler</span>(
+    user_id=<span class="st">"user-123"</span>,
+    session_id=<span class="st">"langchain-demo"</span>,
+    tags=[<span class="st">"langchain"</span>, <span class="st">"day3"</span>],
+)
+
+<span class="kw">from</span> langchain_openai <span class="kw">import</span> ChatOpenAI
+<span class="kw">from</span> langchain.prompts <span class="kw">import</span> ChatPromptTemplate
+<span class="kw">from</span> langchain.schema.output_parser <span class="kw">import</span> StrOutputParser
+
+<span class="cm"># Point LangChain at your local Ollama server</span>
+llm = <span class="fn">ChatOpenAI</span>(
+    base_url=<span class="st">f"{os.getenv('OLLAMA_BASE_URL')}"</span>,
+    api_key=<span class="st">"ollama"</span>,
+    model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+    temperature=<span class="nu">0.4</span>,
+)
+
+prompt = <span class="fn">ChatPromptTemplate</span>.<span class="fn">from_messages</span>([
+    (<span class="st">"system"</span>, <span class="st">"You are a QA Architect. Be concise and practical."</span>),
+    (<span class="st">"human"</span>,  <span class="st">"{question}"</span>),
+])
+
+chain = prompt | llm | <span class="fn">StrOutputParser</span>()
+
+<span class="cm"># ✅ Pass the Langfuse callback handler — that's it.
+# All LangChain operations are automatically traced.</span>
+result = chain.<span class="fn">invoke</span>(
+    {<span class="st">"question"</span>: <span class="st">"What is the difference between QA and QC?"</span>},
+    config={<span class="st">"callbacks"</span>: [langfuse_handler]},
+)
+
+<span class="fn">print</span>(result)
+langfuse_handler.<span class="fn">flush</span>()
+<span class="fn">print</span>(<span class="st">"✓ Trace in Langfuse. LangChain chain → spans auto-created."</span>)
+</code></pre>
+      </div>
+      <div class="cb"><div class="ch"><span class="cf"><span class="lt lb">BASH</span></span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 04_langchain_cb.py</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h2s2">
+    <div class="shdr"><div class="snum2">2</div><div>
+      <div class="stitle">LiteLLM integration</div>
+      <div class="ssub">day3/05_litellm.py — proxy any model through Langfuse</div>
+    </div></div>
+    <div class="sbody">
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> install</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> pip install litellm</code></pre>
+      </div>
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/05_litellm.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">import</span> litellm
+<span class="kw">from</span> litellm.integrations.langfuse <span class="kw">import</span> LangfuseLogger
+
+<span class="cm"># One-line Langfuse integration for LiteLLM</span>
+litellm.success_callback = [<span class="st">"langfuse"</span>]
+litellm.failure_callback = [<span class="st">"langfuse"</span>]
+
+<span class="cm"># All LiteLLM calls are now auto-traced</span>
+response = litellm.<span class="fn">completion</span>(
+    model=<span class="st">f"ollama/{os.getenv('OLLAMA_MODEL')}"</span>,
+    messages=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"What is test-driven development?"</span>}],
+    api_base=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>).<span class="fn">replace</span>(<span class="st">"/v1"</span>, <span class="st">""</span>),
+    metadata={
+        <span class="st">"langfuse_user_id"</span>:    <span class="st">"user-123"</span>,
+        <span class="st">"langfuse_session_id"</span>: <span class="st">"litellm-demo"</span>,
+        <span class="st">"langfuse_tags"</span>:       [<span class="st">"litellm"</span>, <span class="st">"day3"</span>],
+    }
+)
+
+<span class="fn">print</span>(response.choices[<span class="nu">0</span>].message.content)
+<span class="fn">print</span>(<span class="st">"✓ LiteLLM call traced via Langfuse callback."</span>)
+</code></pre>
+      </div>
+      <div class="note">
+        <strong>LiteLLM's superpower:</strong> With LiteLLM you can switch between Ollama, OpenAI, Anthropic, Gemini by changing a single model string — and Langfuse traces all of them identically. Perfect for model comparison experiments without rewriting instrumentation.
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h2s3">
+    <div class="shdr"><div class="snum2">3</div><div>
+      <div class="stitle">OpenTelemetry — the foundation</div>
+      <div class="ssub">why all integrations work</div>
+    </div></div>
+    <div class="sbody">
+      <p>Every Langfuse integration works because Langfuse v4 is built on <strong>OpenTelemetry (OTel)</strong>. Any library that emits OTel spans (LangChain, LiteLLM, your HTTP client, your DB queries) automatically appears in Langfuse traces — even without explicit instrumentation.</p>
+      <div class="blue">
+        <strong>What this means practically:</strong> If your app uses <code class="il">opentelemetry-instrumentation-httpx</code> or <code class="il">opentelemetry-instrumentation-sqlalchemy</code>, those spans automatically nest inside your Langfuse traces. You can see the full picture — LLM call + DB query + external API — in one trace view. Install any OTel instrumentation package and it just works.
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h2s4">
+    <div class="shdr"><div class="snum2">4</div><div>
+      <div class="stitle">FastAPI production integration</div>
+      <div class="ssub">day3/06_fastapi_app.py — real HTTP service with tracing</div>
+    </div></div>
+    <div class="sbody">
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> install</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> pip install fastapi uvicorn</code></pre>
+      </div>
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/06_fastapi_app.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, HTTPException
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+app      = <span class="fn">FastAPI</span>(title=<span class="st">"QA Architect API"</span>)
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+
+<span class="kw">class</span> <span class="ty">QuestionRequest</span>(<span class="ty">BaseModel</span>):
+    question: str
+    user_id:  str = <span class="st">"anonymous"</span>
+    session_id: str = <span class="st">"default"</span>
+
+<span class="kw">class</span> <span class="ty">FeedbackRequest</span>(<span class="ty">BaseModel</span>):
+    trace_id: str
+    helpful:  bool
+    comment:  str = <span class="st">""</span>
+
+
+<span class="at">@observe</span>(name=<span class="st">"api-qa-answer"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">generate_answer</span>(question: str) -> str:
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+    )
+    resp = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a QA Architect. Be concise."</span>},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+    answer = resp.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(output=answer,
+        usage={"input": resp.usage.prompt_tokens, "output": resp.usage.completion_tokens})
+    <span class="kw">return</span> answer
+
+
+<span class="at">@app.post</span>(<span class="st">"/ask"</span>)
+<span class="kw">async def</span> <span class="fn">ask_question</span>(req: <span class="ty">QuestionRequest</span>):
+    trace_id = <span class="kw">None</span>
+    <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+        trace_name=<span class="st">"api-request"</span>,
+        user_id=req.user_id,
+        session_id=req.session_id,
+        tags=[<span class="st">"api"</span>, <span class="st">"fastapi"</span>],
+    ):
+        answer   = <span class="fn">generate_answer</span>(req.question)
+        trace_id = langfuse.<span class="fn">get_current_trace_id</span>()
+
+    <span class="kw">return</span> {<span class="st">"answer"</span>: answer, <span class="st">"trace_id"</span>: trace_id}
+
+
+<span class="at">@app.post</span>(<span class="st">"/feedback"</span>)
+<span class="kw">async def</span> <span class="fn">submit_feedback</span>(req: <span class="ty">FeedbackRequest</span>):
+    langfuse.<span class="fn">create_score</span>(
+        name=<span class="st">"user_feedback"</span>,
+        value=<span class="nu">1</span> <span class="kw">if</span> req.helpful <span class="kw">else</span> <span class="nu">0</span>,
+        data_type=<span class="st">"BOOLEAN"</span>,
+        trace_id=req.trace_id,
+        comment=req.comment <span class="kw">or</span> <span class="kw">None</span>,
+    )
+    langfuse.<span class="fn">flush</span>()
+    <span class="kw">return</span> {<span class="st">"status"</span>: <span class="st">"recorded"</span>}
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    <span class="kw">import</span> uvicorn
+    uvicorn.<span class="fn">run</span>(app, host=<span class="st">"0.0.0.0"</span>, port=<span class="nu">8000</span>)
+</code></pre>
+      </div>
+      <div class="cb"><div class="ch"><span class="cf"><span class="lt lb">BASH</span> run & test</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 06_fastapi_app.py
+
+<span class="bc"># In another terminal:</span>
+<span class="bp">$</span> curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is smoke testing?", "user_id": "user-123"}'
+
+<span class="bc"># Copy the trace_id from the response, then:</span>
+<span class="bp">$</span> curl -X POST http://localhost:8000/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"trace_id": "PASTE_HERE", "helpful": true, "comment": "Great answer"}'</code></pre>
+      </div>
+
+      <div class="exercise">
+        <div class="ex-hdr"><span class="ex-badge ex-b2">H2 EXERCISE</span><span class="ex-title">Add OTel auto-instrumentation</span></div>
+        <div class="ex-body"><ul>
+          <li>Install <code class="il">pip install opentelemetry-instrumentation-fastapi</code>. Add <code class="il">FastAPIInstrumentor().instrument_app(app)</code> before the route definitions. HTTP-level spans (request duration, status codes) will now appear alongside your LLM spans in Langfuse.</li>
+          <li>Compare the trace with and without HTTP spans — can you see the overhead your FastAPI middleware adds on top of the pure LLM latency?</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ HOUR 3 ═══════════════════════ -->
+  <div class="hour-divider" id="h3s1">
+    <span class="hd-badge hd3">Hour 3</span>
+    <div><div class="hd-title">Production Monitoring</div><div class="hd-sub">cost, dashboards, metrics API, self-hosting</div></div>
+  </div>
+
+  <div class="step">
+    <div class="shdr"><div class="snum3">1</div><div>
+      <div class="stitle">Cost &amp; token tracking</div>
+      <div class="ssub">day3/07_cost_tracking.py</div>
+    </div></div>
+    <div class="sbody">
+      <p>Langfuse tracks token usage per trace automatically when you pass <code class="il">usage</code> to <code class="il">update_current_generation()</code>. For Ollama (no dollar cost), you track tokens as a proxy for latency and resource usage. For cloud models, Langfuse converts tokens to dollar cost using built-in pricing tables.</p>
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/07_cost_tracking.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+<span class="at">@observe</span>(name=<span class="st">"cost-tracked-gen"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">tracked_llm_call</span>(question: str) -> str:
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+        output=answer,
+        usage={
+            <span class="st">"input"</span>:          response.usage.prompt_tokens,
+            <span class="st">"output"</span>:         response.usage.completion_tokens,
+            <span class="st">"total"</span>:          response.usage.total_tokens,
+            <span class="cm"># For Ollama: no dollar cost. For OpenAI models, Langfuse</span>
+            <span class="cm"># auto-calculates cost from model name + token counts.</span>
+            <span class="cm"># You can also set it manually:</span>
+            <span class="cm"># "input_cost": 0.0,   "output_cost": 0.0,</span>
+        },
+        metadata={
+            <span class="st">"model_family"</span>: <span class="st">"ollama-local"</span>,
+            <span class="st">"input_chars"</span>:  <span class="fn">str</span>(<span class="fn">len</span>(question)),
+        },
+    )
+    <span class="kw">return</span> answer
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    questions = [
+        <span class="st">"What is smoke testing?"</span>,
+        <span class="st">"Explain boundary value analysis with examples."</span>,
+        <span class="st">"How do you build a test automation framework from scratch? Give a detailed answer."</span>,
+    ]
+    <span class="kw">for</span> q <span class="kw">in</span> questions:
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">"Cost-tracked QA"</span>,
+            tags=[<span class="st">"cost-demo"</span>, <span class="st">"day3"</span>],
+        ):
+            answer = <span class="fn">tracked_llm_call</span>(q)
+            <span class="fn">print</span>(<span class="st">f"Q: {q[:50]} → {len(answer.split())} words"</span>)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">"\n✓ Check Langfuse → Dashboard → Token Usage chart"</span>)
+    <span class="fn">print</span>(<span class="st">"  Filter by tag 'cost-demo' to see just these traces"</span>)
+</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h3s2">
+    <div class="shdr"><div class="snum3">2</div><div>
+      <div class="stitle">Custom dashboards in the UI</div>
+      <div class="ssub">four panels to set up in Langfuse → Dashboards</div>
+    </div></div>
+    <div class="sbody">
+      <p>Go to <strong>Langfuse → Dashboards → Create Dashboard</strong>. Build these four panels — together they give you a complete production health view:</p>
+      <table>
+        <thead><tr><th>Panel</th><th>Type</th><th>Config</th><th>What it tells you</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Token usage over time</strong></td><td>Line chart</td><td>Metric: Total tokens | Granularity: Daily</td><td>Consumption trend — spot sudden spikes</td></tr>
+          <tr><td><strong>Average latency by trace name</strong></td><td>Bar chart</td><td>Group by: Trace name | Metric: P50 latency</td><td>Which pipeline steps are slow</td></tr>
+          <tr><td><strong>Quality score distribution</strong></td><td>Histogram</td><td>Score: answer_completeness | Bins: 10</td><td>Are most responses above your quality threshold?</td></tr>
+          <tr><td><strong>User feedback rate</strong></td><td>Line chart</td><td>Score: user_feedback | Metric: Average</td><td>Thumbs-up rate over time — the north star metric</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="step" id="h3s3">
+    <div class="shdr"><div class="snum3">3</div><div>
+      <div class="stitle">Metrics API — pull data into your systems</div>
+      <div class="ssub">day3/08_metrics_api.py</div>
+    </div></div>
+    <div class="sbody">
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/08_metrics_api.py</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client
+<span class="kw">from</span> datetime <span class="kw">import</span> datetime, timedelta, timezone
+
+langfuse = <span class="fn">get_client</span>()
+
+<span class="cm"># ── 1. Fetch recent traces ────────────────────────────────────────</span>
+recent = langfuse.<span class="fn">fetch_traces</span>(limit=<span class="nu">10</span>).data
+<span class="fn">print</span>(<span class="st">f"Recent 10 traces:"</span>)
+<span class="kw">for</span> t <span class="kw">in</span> recent[:<span class="nu">3</span>]:
+    <span class="fn">print</span>(<span class="st">f"  {t.id[:12]} | {t.name} | {t.timestamp}"</span>)
+
+<span class="cm"># ── 2. Fetch scores for a specific score name ─────────────────────</span>
+scores = langfuse.<span class="fn">fetch_scores</span>(
+    name=<span class="st">"user_feedback"</span>,
+    limit=<span class="nu">50</span>,
+).data
+
+<span class="kw">if</span> scores:
+    thumbs_up   = <span class="fn">sum</span>(<span class="nu">1</span> <span class="kw">for</span> s <span class="kw">in</span> scores <span class="kw">if</span> s.value == <span class="nu">1</span>)
+    thumbs_down = <span class="fn">sum</span>(<span class="nu">1</span> <span class="kw">for</span> s <span class="kw">in</span> scores <span class="kw">if</span> s.value == <span class="nu">0</span>)
+    rate = <span class="fn">round</span>(thumbs_up / <span class="fn">len</span>(scores) * <span class="nu">100</span>, <span class="nu">1</span>)
+    <span class="fn">print</span>(<span class="st">f"\nUser feedback (last 50): 👍 {thumbs_up} | 👎 {thumbs_down} | Rate: {rate}%"</span>)
+
+<span class="cm"># ── 3. Fetch traces with low quality scores ───────────────────────</span>
+low_quality = langfuse.<span class="fn">fetch_traces</span>(
+    tags=[<span class="st">"qa"</span>],
+    limit=<span class="nu">100</span>,
+).data
+
+<span class="cm"># Filter by score in post-processing (API filtering by score value coming soon)</span>
+<span class="fn">print</span>(<span class="st">f"\nFetched {len(low_quality)} QA traces for analysis"</span>)
+
+<span class="cm"># ── 4. Export to CSV for external analysis ───────────────────────</span>
+<span class="kw">import</span> csv
+<span class="kw">with</span> <span class="fn">open</span>(<span class="st">"traces_export.csv"</span>, <span class="st">"w"</span>, newline=<span class="st">""</span>) <span class="kw">as</span> f:
+    writer = csv.<span class="fn">DictWriter</span>(f, fieldnames=[<span class="st">"id"</span>, <span class="st">"name"</span>, <span class="st">"timestamp"</span>, <span class="st">"user_id"</span>])
+    writer.<span class="fn">writeheader</span>()
+    <span class="kw">for</span> t <span class="kw">in</span> recent:
+        writer.<span class="fn">writerow</span>({
+            <span class="st">"id"</span>: t.id, <span class="st">"name"</span>: t.name,
+            <span class="st">"timestamp"</span>: <span class="fn">str</span>(t.timestamp), <span class="st">"user_id"</span>: <span class="fn">getattr</span>(t, <span class="st">"user_id"</span>, <span class="st">""</span>),
+        })
+<span class="fn">print</span>(<span class="st">"\n✓ Exported traces to traces_export.csv"</span>)
+</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="h3s4">
+    <div class="shdr"><div class="snum3">4</div><div>
+      <div class="stitle">Self-hosting overview</div>
+      <div class="ssub">run Langfuse on your own infrastructure</div>
+    </div></div>
+    <div class="sbody">
+      <p>Langfuse is fully open-source and can run on your infrastructure. You only need to change <code class="il">LANGFUSE_BASE_URL</code> in your <code class="il">.env</code> — all Python code stays identical.</p>
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> Docker Compose — quickstart</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bc"># Clone the repo</span>
+<span class="bp">$</span> git clone https://github.com/langfuse/langfuse.git && cd langfuse
+
+<span class="bc"># Start Langfuse (Postgres + web + worker)</span>
+<span class="bp">$</span> docker compose up -d
+
+<span class="bc"># Langfuse now runs at http://localhost:3000
+# Update your .env:</span>
+<span class="bc"># LANGFUSE_BASE_URL="http://localhost:3000"</span>
+
+<span class="bc"># Everything else is identical — same Python SDK, same API</span></code></pre>
+      </div>
+      <table>
+        <thead><tr><th>Deployment</th><th>Best for</th><th>Data residency</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Langfuse Cloud</strong></td><td>SaaS, no ops, free tier</td><td>EU / US / Japan / HIPAA regions</td></tr>
+          <tr><td><strong>Docker Compose</strong></td><td>Local dev, small teams, single server</td><td>Your machine / VPS</td></tr>
+          <tr><td><strong>Kubernetes (Helm)</strong></td><td>Production scale, HA, enterprise</td><td>Your cloud account</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="step" id="h3s5">
+    <div class="shdr"><div class="snum3">5</div><div>
+      <div class="stitle">Final capstone — the complete system</div>
+      <div class="ssub">day3/09_final_capstone.py — 9-hour tutorial complete</div>
+    </div></div>
+    <div class="sbody">
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lp">PYTHON</span> day3/09_final_capstone.py — everything combined</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid, json, re
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+FALLBACK  = <span class="st">"You are an experienced QA Architect. Provide practical advice."</span>
+
+
+<span class="cm"># ── Scoring helpers ───────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">_auto_scores</span>(text: str, question: str):
+    words    = <span class="fn">len</span>(text.<span class="fn">split</span>())
+    has_struct = <span class="fn">any</span>(c <span class="kw">in</span> text <span class="kw">for</span> c <span class="kw">in</span> [<span class="st">"1."</span>,<span class="st">"•"</span>,<span class="st">"- "</span>,<span class="st">"\n\n"</span>])
+    has_eg     = <span class="st">"example"</span> <span class="kw">in</span> text.lower()
+    q_words    = {w.lower() <span class="kw">for</span> w <span class="kw">in</span> re.<span class="fn">findall</span>(<span class="st">r'\b\w{4,}\b'</span>,question)}
+    coverage   = <span class="fn">round</span>(<span class="fn">sum</span>(<span class="nu">1</span> <span class="kw">for</span> w <span class="kw">in</span> q_words <span class="kw">if</span> w <span class="kw">in</span> text.lower())/<span class="fn">max</span>(<span class="fn">len</span>(q_words),<span class="nu">1</span>),<span class="nu">3</span>)
+    <span class="kw">if</span>   words>=<span class="nu">60</span> <span class="kw">and</span> has_struct <span class="kw">and</span> has_eg: quality=<span class="st">"excellent"</span>
+    <span class="kw">elif</span> words>=<span class="nu">30</span> <span class="kw">and</span> (has_struct <span class="kw">or</span> has_eg):  quality=<span class="st">"good"</span>
+    <span class="kw">elif</span> words>=<span class="nu">10</span>:                               quality=<span class="st">"acceptable"</span>
+    <span class="kw">else</span>:                                          quality=<span class="st">"poor"</span>
+    <span class="kw">return</span> quality, coverage
+
+
+<span class="at">@observe</span>(name=<span class="st">"llm-call"</span>, as_type=<span class="st">"generation"</span>, capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">call_llm</span>(messages: list, prompt_obj, turn: int, question: str) -> str:
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>), input=messages, prompt=prompt_obj,
+        metadata={<span class="st">"turn"</span>: <span class="fn">str</span>(turn)},
+    )
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>), messages=messages)
+    answer = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(output=answer,
+        usage={"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens})
+
+    quality, coverage = <span class="fn">_auto_scores</span>(answer, question)
+    langfuse.<span class="fn">score_current_trace</span>(name=<span class="st">"auto_quality"</span>, value=quality, data_type=<span class="st">"CATEGORICAL"</span>)
+    langfuse.<span class="fn">score_current_span</span>(name=<span class="st">"keyword_coverage"</span>, value=coverage, data_type=<span class="st">"NUMERIC"</span>)
+    <span class="kw">return</span> answer
+
+
+<span class="at">@observe</span>(name=<span class="st">"chat-turn"</span>)
+<span class="kw">def</span> <span class="fn">process_turn</span>(messages, prompt_obj, turn, question): <span class="kw">return</span> <span class="fn">call_llm</span>(messages, prompt_obj, turn, question)
+
+
+<span class="kw">class</span> <span class="ty">FinalChatbot</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, user_id=<span class="st">"user-123"</span>):
+        self.user_id=user_id; self.session_id=<span class="st">f"final-{uuid.uuid4().hex[:8]}"</span>; self.turn=<span class="nu">0</span>
+        <span class="kw">try</span>:
+            self.prompt_obj = langfuse.<span class="fn">get_prompt</span>(<span class="st">"qa-architect-system"</span>, cache_ttl_seconds=<span class="nu">300</span>, fallback=FALLBACK)
+            sys = self.prompt_obj.<span class="fn">compile</span>(experience_years=<span class="st">"20"</span>, specialisation=<span class="st">"quality engineering"</span>, style=<span class="st">"structured with examples"</span>)
+        <span class="kw">except</span>: self.prompt_obj=<span class="kw">None</span>; sys=FALLBACK
+        self.history=[{<span class="st">"role"</span>:<span class="st">"system"</span>,<span class="st">"content"</span>:sys}]
+        v=<span class="fn">getattr</span>(self.prompt_obj,<span class="st">"version"</span>,<span class="st">"fallback"</span>)
+        <span class="fn">print</span>(<span class="st">f"\n{'='*55}\n  QA Architect · Final Capstone · Prompt v{v}\n  Session: {self.session_id}\n  y=👍  n=👎  quit=exit\n{'='*55}\n"</span>)
+
+    <span class="kw">def</span> <span class="fn">chat</span>(self, q):
+        self.turn+=<span class="nu">1</span>; self.history.<span class="fn">append</span>({<span class="st">"role"</span>:<span class="st">"user"</span>,<span class="st">"content"</span>:q})
+        trace_id=<span class="kw">None</span>
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(trace_name=<span class="st">f"Turn {self.turn}: {q[:35]}"</span>,
+            session_id=self.session_id, user_id=self.user_id,
+            tags=[<span class="st">"final-capstone"</span>,<span class="st">"day3"</span>], metadata={<span class="st">"turn"</span>:<span class="fn">str</span>(self.turn)}):
+            reply=<span class="fn">process_turn</span>(self.history,self.prompt_obj,self.turn,q)
+            trace_id=langfuse.<span class="fn">get_current_trace_id</span>()
+        self.history.<span class="fn">append</span>({<span class="st">"role"</span>:<span class="st">"assistant"</span>,<span class="st">"content"</span>:reply})
+        <span class="kw">return</span> reply, trace_id
+
+    <span class="kw">def</span> <span class="fn">feedback</span>(self,trace_id,up,comment=<span class="st">""</span>):
+        langfuse.<span class="fn">create_score</span>(name=<span class="st">"user_feedback"</span>,value=<span class="nu">1</span> <span class="kw">if</span> up <span class="kw">else</span> <span class="nu">0</span>,
+            data_type=<span class="st">"BOOLEAN"</span>,trace_id=trace_id,comment=comment <span class="kw">or</span> <span class="kw">None</span>)
+
+    <span class="kw">def</span> <span class="fn">end</span>(self):
+        langfuse.<span class="fn">flush</span>()
+        <span class="fn">print</span>(<span class="st">f"\n✓ {self.turn} turns complete · Session: {self.session_id}"</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    bot=<span class="fn">FinalChatbot</span>()
+    <span class="kw">while</span> <span class="ty">True</span>:
+        q=<span class="fn">input</span>(<span class="st">"You: "</span>).<span class="fn">strip</span>()
+        <span class="kw">if</span> q.lower() <span class="kw">in</span> (<span class="st">"quit"</span>,<span class="st">"q"</span>): <span class="kw">break</span>
+        <span class="kw">if</span> <span class="kw">not</span> q: <span class="kw">continue</span>
+        reply, tid = bot.<span class="fn">chat</span>(q)
+        <span class="fn">print</span>(<span class="st">f"\nQA Architect: {reply}\n"</span>)
+        r=<span class="fn">input</span>(<span class="st">"Helpful? (y/n/skip): "</span>).<span class="fn">strip</span>().lower()
+        <span class="kw">if</span> r <span class="kw">in</span> (<span class="st">"y"</span>,<span class="st">"n"</span>) <span class="kw">and</span> tid:
+            c=<span class="fn">input</span>(<span class="st">"Comment (Enter to skip): "</span>).<span class="fn">strip</span>()
+            bot.<span class="fn">feedback</span>(tid,r==<span class="st">"y"</span>,c)
+            <span class="fn">print</span>(<span class="st">f"  {'👍' if r=='y' else '👎'} recorded\n"</span>)
+    bot.<span class="fn">end</span>()
+</code></pre>
+      </div>
+      <div class="cb"><div class="ch"><span class="cf"><span class="lt lb">BASH</span> run final capstone</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 09_final_capstone.py</code></pre>
+      </div>
+
+      <div class="exercise">
+        <div class="ex-hdr"><span class="ex-badge ex-b3">H3 EXERCISE</span><span class="ex-title">Complete the loop</span></div>
+        <div class="ex-body"><ul>
+          <li>Run <code class="il">09_final_capstone.py</code>, ask 5+ questions, give mixed feedback. Then run <code class="il">03_promote_traces.py</code> — your good responses become dataset items automatically.</li>
+          <li>Run <code class="il">02_run_experiment.py</code> again with the expanded dataset. Does adding real production data change which prompt version wins?</li>
+          <li>Build the 4-panel dashboard in Langfuse UI. Take a screenshot of your quality metrics — you've built a real production observability system.</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINAL BANNER -->
+  <div class="final-banner">
+    <div class="fb-title">🎓 9-Hour Langfuse Tutorial Complete</div>
+    <div class="fb-sub">You've built a production-grade LLM observability system from scratch using Ollama and Langfuse v4. Every component is real, every pattern is production-ready.</div>
+    <div class="fb-grid">
+      <div class="fb-card">
+        <div class="fb-card-day">DAY 1 · FOUNDATIONS</div>
+        <div class="fb-card-title">Tracing & Sessions</div>
+        <div class="fb-card-items">
+          ✓ SDK setup + Ollama<br>
+          ✓ Trace → Span → Generation<br>
+          ✓ @observe decorator<br>
+          ✓ Sessions & async<br>
+          ✓ Multi-turn chatbot
+        </div>
+      </div>
+      <div class="fb-card">
+        <div class="fb-card-day">DAY 2 · QUALITY</div>
+        <div class="fb-card-title">Prompts & Evaluation</div>
+        <div class="fb-card-items">
+          ✓ Prompt versioning<br>
+          ✓ Zero-deploy updates<br>
+          ✓ 4 score types<br>
+          ✓ User feedback loop<br>
+          ✓ LLM-as-judge + code evals
+        </div>
+      </div>
+      <div class="fb-card">
+        <div class="fb-card-day">DAY 3 · PRODUCTION</div>
+        <div class="fb-card-title">Scale & Ship</div>
+        <div class="fb-card-items">
+          ✓ Datasets + experiments<br>
+          ✓ LangChain + LiteLLM<br>
+          ✓ FastAPI integration<br>
+          ✓ Cost tracking<br>
+          ✓ Metrics API + self-host
+        </div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--muted);">All code runs locally · Zero OpenAI account needed · Ollama + Langfuse free tier</div>
+  </div>
+
+</main>
+</div>
+<script>
+function copyCode(btn){const pre=btn.closest('.cb').querySelector('pre');navigator.clipboard.writeText(pre.innerText).then(()=>{btn.textContent='copied!';btn.classList.add('copied');setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},1800);});}
+const sections=document.querySelectorAll('[id]');const items=document.querySelectorAll('.sbi[href^="#"]');
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){items.forEach(a=>a.classList.remove('active'));const a=document.querySelector(`.sbi[href="#${e.target.id}"]`);if(a)a.classList.add('active');}});},{rootMargin:'-20% 0% -60% 0%'});
+sections.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

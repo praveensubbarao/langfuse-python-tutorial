@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse + Ollama · Day 1 · Hour 2</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e28;
+    --border: #252a38;
+    --border2: #2e3548;
+    --text: #e8eaf0;
+    --muted: #6b7394;
+    --dim: #3d4460;
+    --accent: #7c9eff;
+    --accent2: #a78bfa;
+    --accent3: #34d399;
+    --accent4: #fb923c;
+    --accent5: #f472b6;
+    --code-bg: #0a0c12;
+    --highlight: #1e2235;
+    --tag-blue: #1a2540;
+    --tag-blue-text: #7c9eff;
+    --tag-green: #0f2018;
+    --tag-green-text: #34d399;
+    --tag-purple: #1e1530;
+    --tag-purple-text: #a78bfa;
+    --tag-orange: #201509;
+    --tag-orange-text: #fb923c;
+    --tag-pink: #200f18;
+    --tag-pink-text: #f472b6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; line-height: 1.7; font-size: 16px; }
+
+  /* HEADER */
+  header { border-bottom: 1px solid var(--border); padding: 0 2rem; position: sticky; top: 0; background: rgba(13,15,20,0.93); backdrop-filter: blur(14px); z-index: 100; display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .logo-pill { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; letter-spacing: 0.05em; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-title { font-size: 13px; color: var(--muted); font-weight: 300; }
+  .progress-chips { display: flex; gap: 6px; }
+  .chip { font-size: 11px; font-family: 'JetBrains Mono', monospace; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border2); color: var(--muted); }
+  .chip.done { border-color: var(--accent3); color: var(--accent3); background: rgba(52,211,153,0.07); }
+  .chip.active { border-color: var(--accent); color: var(--accent); background: rgba(124,158,255,0.08); }
+
+  /* LAYOUT */
+  .layout { display: flex; min-height: calc(100vh - 56px); }
+
+  /* SIDEBAR */
+  aside { width: 240px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 2rem 0; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
+  .sidebar-section { padding: 0 1.25rem; margin-bottom: 2rem; }
+  .sidebar-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--dim); text-transform: uppercase; margin-bottom: 0.75rem; }
+  .sidebar-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); cursor: pointer; transition: all 0.15s; text-decoration: none; margin-bottom: 2px; }
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: var(--highlight); color: var(--accent); }
+  .step-dot { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: 'JetBrains Mono', monospace; font-weight: 700; flex-shrink: 0; }
+  .step-dot.done { background: rgba(52,211,153,0.15); color: var(--accent3); }
+  .step-dot.current { background: rgba(124,158,255,0.15); color: var(--accent); }
+  .step-dot.todo { background: var(--surface2); color: var(--dim); }
+
+  /* MAIN */
+  main { flex: 1; padding: 3rem 3.5rem; max-width: 880px; }
+
+  /* HERO */
+  .hero { margin-bottom: 3rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--border); }
+  .hero-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+  .hero-eyebrow::before { content: ''; display: block; width: 24px; height: 1px; background: var(--accent); }
+  .hero h1 { font-family: 'Fraunces', serif; font-size: 2.6rem; font-weight: 300; line-height: 1.15; color: var(--text); margin-bottom: 1rem; }
+  .hero h1 em { font-style: italic; color: var(--accent2); }
+  .hero-sub { font-size: 15px; color: var(--muted); max-width: 560px; line-height: 1.7; }
+  .hero-meta { display: flex; gap: 1.5rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .meta-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+  .meta-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); }
+
+  /* RECAP BOX */
+  .recap-box { background: rgba(52,211,153,0.04); border: 1px solid rgba(52,211,153,0.18); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 2.5rem; }
+  .recap-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--accent3); text-transform: uppercase; margin-bottom: 0.75rem; }
+  .recap-items { display: flex; flex-wrap: wrap; gap: 10px; }
+  .recap-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .recap-icon { color: var(--accent3); }
+
+  /* CALLOUT BOXES */
+  .insight { background: rgba(124,158,255,0.05); border: 1px solid rgba(124,158,255,0.2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.5rem 0; font-size: 14px; color: var(--text); line-height: 1.65; }
+  .insight strong { color: var(--accent); font-weight: 500; }
+  .warn-box { background: rgba(251,146,60,0.05); border: 1px solid rgba(251,146,60,0.2); border-left: 3px solid var(--accent4); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.5rem 0; font-size: 14px; color: var(--text); line-height: 1.65; }
+  .warn-box strong { color: var(--accent4); font-weight: 500; }
+  .success-box { background: rgba(52,211,153,0.05); border: 1px solid rgba(52,211,153,0.2); border-left: 3px solid var(--accent3); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.5rem 0; font-size: 14px; color: var(--text); line-height: 1.65; }
+  .success-box strong { color: var(--accent3); font-weight: 500; }
+  .purple-box { background: rgba(167,139,250,0.05); border: 1px solid rgba(167,139,250,0.2); border-left: 3px solid var(--accent2); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.5rem 0; font-size: 14px; color: var(--text); line-height: 1.65; }
+  .purple-box strong { color: var(--accent2); font-weight: 500; }
+
+  /* STEP SECTIONS */
+  .step-section { margin-bottom: 3rem; }
+  .step-header { display: flex; align-items: center; gap: 14px; margin-bottom: 1.25rem; }
+  .step-number { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .step-title { font-family: 'Fraunces', serif; font-size: 1.3rem; font-weight: 500; color: var(--text); line-height: 1.2; }
+  .step-subtitle { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .step-body { padding-left: 50px; }
+  p { margin-bottom: 1rem; color: var(--muted); font-size: 15px; }
+  p strong { color: var(--text); font-weight: 500; }
+
+  /* CODE BLOCKS */
+  .code-block { background: var(--code-bg); border: 1px solid var(--border2); border-radius: 10px; overflow: hidden; margin: 1.25rem 0; }
+  .code-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .code-filename { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .lang-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+  .lang-bash { background: var(--tag-green); color: var(--tag-green-text); }
+  .lang-python { background: var(--tag-blue); color: var(--tag-blue-text); }
+  .lang-env { background: var(--tag-orange); color: var(--tag-orange-text); }
+  .lang-diagram { background: var(--tag-purple); color: var(--tag-purple-text); }
+  .copy-btn { background: none; border: 1px solid var(--border2); color: var(--muted); font-size: 11px; font-family: 'JetBrains Mono', monospace; padding: 3px 10px; border-radius: 5px; cursor: pointer; transition: all 0.15s; }
+  .copy-btn:hover { background: var(--surface2); color: var(--text); }
+  .copy-btn.copied { color: var(--accent3); border-color: var(--accent3); }
+  pre { padding: 1.25rem 1.5rem; overflow-x: auto; line-height: 1.7; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+  /* Syntax highlighting */
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .st { color: #c3e88d; }
+  .cm { color: #4a5568; font-style: italic; }
+  .va { color: #f07178; }
+  .nu { color: #f78c6c; }
+  .op { color: #89ddff; }
+  .ty { color: #ffcb6b; }
+  .at { color: #fb923c; }
+  .bash-prompt { color: var(--accent3); user-select: none; }
+  .bash-cmd { color: var(--text); }
+  .bash-comment { color: var(--dim); font-style: italic; }
+  .env-key { color: var(--accent4); }
+  .env-val { color: var(--accent3); }
+  .env-comment { color: var(--dim); font-style: italic; }
+  code.inline { background: var(--surface2); border: 1px solid var(--border2); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; color: var(--accent); }
+
+  /* DATA MODEL DIAGRAM */
+  .model-diagram { background: var(--code-bg); border: 1px solid var(--border2); border-radius: 10px; padding: 1.5rem 1.75rem; margin: 1.25rem 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 2; overflow-x: auto; }
+  .dm-trace { color: #7c9eff; font-weight: 700; }
+  .dm-span  { color: #fb923c; font-weight: 700; }
+  .dm-gen   { color: #a78bfa; font-weight: 700; }
+  .dm-field { color: #34d399; }
+  .dm-val   { color: #6b7394; }
+  .dm-arrow { color: #3d4460; }
+
+  /* COMPARISON TABLE */
+  .compare-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 13.5px; }
+  .compare-table th { text-align: left; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border2); color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
+  .compare-table td { padding: 10px 14px; border: 1px solid var(--border); color: var(--muted); vertical-align: top; line-height: 1.5; font-size: 13px; }
+  .compare-table tr:hover td { background: var(--surface); }
+  .compare-table .hl { color: var(--text); }
+  .compare-table .badge { display: inline-block; font-size: 10px; font-family: 'JetBrains Mono', monospace; padding: 2px 8px; border-radius: 10px; font-weight: 700; margin-bottom: 2px; }
+  .badge-trace { background: var(--tag-blue); color: var(--tag-blue-text); }
+  .badge-span  { background: var(--tag-orange); color: var(--tag-orange-text); }
+  .badge-gen   { background: var(--tag-purple); color: var(--tag-purple-text); }
+
+  /* APPROACH CARDS */
+  .approach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 1.25rem 0; }
+  @media (max-width: 700px) { .approach-grid { grid-template-columns: 1fr; } }
+  .approach-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 1rem 1.2rem; }
+  .approach-card-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .approach-card-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .approach-badge { font-size: 10px; font-family: 'JetBrains Mono', monospace; padding: 2px 8px; border-radius: 10px; }
+
+  /* SECTION LABEL */
+  h2 { font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 500; color: var(--text); margin: 2rem 0 0.75rem; }
+  h3 { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 1.5rem 0 0.5rem; }
+
+  /* CHECKPOINT */
+  .checkpoint { background: linear-gradient(135deg, rgba(52,211,153,0.06), rgba(124,158,255,0.06)); border: 1px solid rgba(52,211,153,0.2); border-radius: 10px; padding: 1.5rem; margin: 2.5rem 0; }
+  .checkpoint-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1rem; }
+  .check-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+  .check-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--muted); }
+  .check-icon { color: var(--accent3); flex-shrink: 0; }
+
+  /* EXERCISE */
+  .exercise { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; padding: 1.5rem; margin-top: 2rem; }
+  .exercise-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+  .exercise-badge { background: rgba(167,139,250,0.12); color: var(--accent2); border: 1px solid rgba(167,139,250,0.3); font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.08em; }
+  .exercise-title { font-family: 'Fraunces', serif; font-size: 1.05rem; font-weight: 500; color: var(--text); }
+  .exercise-body { font-size: 14px; color: var(--muted); line-height: 1.7; }
+  .exercise-body ul { padding-left: 1.25rem; margin-top: 0.5rem; }
+  .exercise-body li { margin-bottom: 8px; }
+
+  /* NEXT CARD */
+  .next-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 2.5rem; }
+  .next-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .next-title { font-family: 'Fraunces', serif; font-size: 1.1rem; font-weight: 500; color: var(--text); }
+  .next-desc { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .next-arrow { font-size: 22px; color: var(--accent); flex-shrink: 0; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  @media (max-width: 768px) { aside { display: none; } main { padding: 2rem 1.5rem; } .hero h1 { font-size: 1.9rem; } }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <span class="logo-pill">LANGFUSE</span>
+    <span class="header-title">Python Tutorial · Ollama Edition</span>
+  </div>
+  <div class="progress-chips">
+    <span class="chip">Day 1</span>
+    <span class="chip done">Hour 1 ✓</span>
+    <span class="chip active">Hour 2</span>
+    <span class="chip">Hour 3</span>
+  </div>
+</header>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Hour 2 · Steps</div>
+    <a class="sidebar-item active" href="#s1"><span class="step-dot current">1</span> The data model</a>
+    <a class="sidebar-item" href="#s2"><span class="step-dot todo">2</span> Method 1: context managers</a>
+    <a class="sidebar-item" href="#s3"><span class="step-dot todo">3</span> Method 2: @observe decorator</a>
+    <a class="sidebar-item" href="#s4"><span class="step-dot todo">4</span> Nesting spans correctly</a>
+    <a class="sidebar-item" href="#s5"><span class="step-dot todo">5</span> Enriching generations</a>
+    <a class="sidebar-item" href="#s6"><span class="step-dot todo">6</span> Error handling</a>
+    <a class="sidebar-item" href="#s7"><span class="step-dot todo">7</span> QA Architect project</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Today's Plan</div>
+    <a class="sidebar-item" href="#"><span class="step-dot done">H1</span> Setup & first trace</a>
+    <a class="sidebar-item" href="#s1"><span class="step-dot current">H2</span> Data model deep-dive</a>
+    <a class="sidebar-item" href="#"><span class="step-dot todo">H3</span> @observe & sessions</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">3 Instrumentation Styles</div>
+    <div style="font-size: 12px; color: var(--muted); padding: 0 10px; line-height: 1.7;">
+      <div style="margin-bottom:6px;"><span style="color:var(--accent)">①</span> Context managers — explicit, full control</div>
+      <div style="margin-bottom:6px;"><span style="color:var(--accent2)">②</span> @observe decorator — clean functions</div>
+      <div><span style="color:var(--accent3)">③</span> Drop-in (OpenAI wrap) — zero boilerplate</div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">Day 1 · Hour 2 of 9</div>
+    <h1>Traces, spans &amp;<br><em>generations</em></h1>
+    <p class="hero-sub">The Langfuse data model in full. By the end of this hour you'll build multi-level traces manually — understanding exactly what the SDK does under the hood, and why it matters for complex apps.</p>
+    <div class="hero-meta">
+      <span class="meta-badge"><span class="meta-dot"></span> ~60 minutes</span>
+      <span class="meta-badge"><span class="meta-dot" style="background:var(--accent2)"></span> 4 Python files to write</span>
+      <span class="meta-badge"><span class="meta-dot" style="background:var(--accent4)"></span> Builds on Hour 1 code</span>
+    </div>
+  </div>
+
+  <!-- RECAP -->
+  <div class="recap-box">
+    <div class="recap-title">✓ From Hour 1 — make sure you have these</div>
+    <div class="recap-items">
+      <span class="recap-item"><span class="recap-icon">✓</span> .env with Langfuse keys + OLLAMA_BASE_URL</span>
+      <span class="recap-item"><span class="recap-icon">✓</span> <code class="inline">langfuse openai python-dotenv</code> installed</span>
+      <span class="recap-item"><span class="recap-icon">✓</span> Ollama running on localhost:11434</span>
+      <span class="recap-item"><span class="recap-icon">✓</span> At least one trace visible in dashboard</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: Data Model -->
+  <div class="step-section" id="s1">
+    <div class="step-header">
+      <div class="step-number">1</div>
+      <div>
+        <div class="step-title">The complete data model</div>
+        <div class="step-subtitle">trace → span → generation — how they nest</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>In Hour 1 you saw a <strong>trace</strong> with one <strong>generation</strong> inside it. That covered the simplest case. Real apps have much deeper hierarchies. Here's the full picture:</p>
+
+      <div class="model-diagram">
+<span class="dm-trace">TRACE</span>  <span class="dm-val">← the entire user request lifecycle. Defined by its root span.</span>
+<span class="dm-val">│</span>   <span class="dm-field">user_id</span>      <span class="dm-val">"user-123"</span>
+<span class="dm-val">│</span>   <span class="dm-field">session_id</span>   <span class="dm-val">"session-abc"</span>
+<span class="dm-val">│</span>   <span class="dm-field">tags</span>         <span class="dm-val">["qa", "architect"]</span>
+<span class="dm-val">│</span>
+<span class="dm-val">├─</span> <span class="dm-span">SPAN</span>  <span class="dm-val">← a unit of non-LLM work (retrieval, pre-processing, API call)</span>
+<span class="dm-val">│</span>  <span class="dm-val">│</span>   <span class="dm-field">name</span>    <span class="dm-val">"retrieve-context"</span>
+<span class="dm-val">│</span>  <span class="dm-val">│</span>   <span class="dm-field">input</span>   <span class="dm-val">{query: "..."}</span>
+<span class="dm-val">│</span>  <span class="dm-val">│</span>   <span class="dm-field">output</span>  <span class="dm-val">{chunks: [...]}</span>
+<span class="dm-val">│</span>  <span class="dm-val">│</span>   <span class="dm-field">latency</span> <span class="dm-val">45ms</span>
+<span class="dm-val">│</span>  <span class="dm-val">│</span>
+<span class="dm-val">│</span>  <span class="dm-val">└─</span> <span class="dm-gen">GENERATION</span>  <span class="dm-val">← specifically an LLM call. Child of the span above.</span>
+<span class="dm-val">│</span>        <span class="dm-field">model</span>            <span class="dm-val">"llama3.2"</span>
+<span class="dm-val">│</span>        <span class="dm-field">input</span>            <span class="dm-val">{messages: [...]}</span>
+<span class="dm-val">│</span>        <span class="dm-field">output</span>           <span class="dm-val">"The answer is..."</span>
+<span class="dm-val">│</span>        <span class="dm-field">usage.input</span>      <span class="dm-val">312  tokens</span>
+<span class="dm-val">│</span>        <span class="dm-field">usage.output</span>     <span class="dm-val">148  tokens</span>
+<span class="dm-val">│</span>        <span class="dm-field">model_parameters</span> <span class="dm-val">{temperature: 0.7}</span>
+<span class="dm-val">│</span>        <span class="dm-field">latency</span>          <span class="dm-val">1840ms</span>
+<span class="dm-val">│</span>
+<span class="dm-val">└─</span> <span class="dm-span">SPAN</span>  <span class="dm-val">← another sibling step (post-processing, formatting, saving)</span>
+      <span class="dm-field">name</span>    <span class="dm-val">"format-response"</span>
+      <span class="dm-field">latency</span> <span class="dm-val">12ms</span>
+      </div>
+
+      <p>The key rule: <strong>nesting is determined by which observation is "active" when you create a new one.</strong> The currently active span becomes the parent of any new span or generation created inside it. OpenTelemetry context propagation handles this automatically.</p>
+
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>When to use</th>
+            <th>Unique fields</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-trace">TRACE</span><br><span class="dm-val" style="font-size:12px;">defined by root span</span></td>
+            <td class="hl">Wraps the entire operation. Created implicitly by the first span you open.</td>
+            <td><code class="inline">user_id</code>, <code class="inline">session_id</code>, <code class="inline">tags</code> via <code class="inline">propagate_attributes()</code></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-span">SPAN</span></td>
+            <td class="hl">Any non-LLM unit of work: DB lookups, vector retrieval, API calls, pre/post-processing steps.</td>
+            <td><code class="inline">input</code>, <code class="inline">output</code>, <code class="inline">metadata</code>, <code class="inline">level</code> (DEBUG/INFO/WARNING/ERROR)</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-gen">GENERATION</span></td>
+            <td class="hl">Every LLM call. Langfuse treats it specially for token tracking, cost, and evals.</td>
+            <td><code class="inline">model</code>, <code class="inline">model_parameters</code>, <code class="inline">usage</code>, <code class="inline">prompt_name</code>, <code class="inline">completion_start_time</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="insight">
+        <strong>v4 architecture note:</strong> Langfuse Python SDK v4 is built on OpenTelemetry. A "Langfuse trace" maps to an "OTel trace", a "Langfuse span" maps to an "OTel span with Langfuse-specific attributes", and a "generation" is just a span with <code class="inline">gen_ai.*</code> attributes attached. This means any other OTEL-instrumented library (HTTP clients, DBs) can appear inside your Langfuse traces automatically.
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- STEP 2: Context Managers -->
+  <div class="step-section" id="s2">
+    <div class="step-header">
+      <div class="step-number">2</div>
+      <div>
+        <div class="step-title">Method 1: context managers</div>
+        <div class="step-subtitle">start_as_current_observation() — explicit, full control</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>The primary v4 way to create observations is <code class="inline">start_as_current_observation()</code> as a context manager. The <code class="inline">with</code> statement guarantees the span is properly closed even if an exception occurs, and everything created inside is automatically a child.</p>
+
+      <p>Create <code class="inline">03_context_managers.py</code>:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> 03_context_managers.py</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, propagate_attributes
+<span class="kw">from</span> langfuse.openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+
+client = <span class="fn">OpenAI</span>(
+    base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>),
+    api_key=<span class="st">"ollama"</span>,
+)
+
+<span class="cm"># ─────────────────────────────────────────────────────────────
+# FULL TRACE: root span → retrieval span → generation (nested)
+# ─────────────────────────────────────────────────────────────</span>
+<span class="kw">with</span> propagate_attributes(
+    trace_name=<span class="st">"qa-pipeline"</span>,
+    user_id=<span class="st">"user-123"</span>,
+    tags=[<span class="st">"qa"</span>, <span class="st">"hour-2"</span>],
+    metadata={<span class="st">"tutorial"</span>: <span class="st">"day1-hour2"</span>},
+):
+    <span class="cm"># Root span — this DEFINES the trace</span>
+    <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+        as_type=<span class="st">"span"</span>,
+        name=<span class="st">"handle-user-question"</span>,
+        input={<span class="st">"question"</span>: <span class="st">"What is boundary value analysis?"</span>},
+    ) <span class="kw">as</span> root_span:
+
+        <span class="cm"># ── Step 1: Simulate document retrieval ──────────────────</span>
+        <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+            as_type=<span class="st">"span"</span>,
+            name=<span class="st">"retrieve-context"</span>,
+            input={<span class="st">"query"</span>: <span class="st">"boundary value analysis"</span>},
+        ) <span class="kw">as</span> retrieval_span:
+
+            <span class="cm"># Simulate finding relevant docs (no real DB needed)</span>
+            fake_docs = [
+                <span class="st">"BVA tests at the edges of input domains..."</span>,
+                <span class="st">"Equivalence partitioning divides inputs into classes..."</span>,
+            ]
+            retrieval_span.<span class="fn">update</span>(
+                output={<span class="st">"chunks_found"</span>: <span class="nu">2</span>, <span class="st">"docs"</span>: fake_docs},
+                metadata={<span class="st">"source"</span>: <span class="st">"knowledge-base"</span>},
+            )
+
+        <span class="cm"># ── Step 2: LLM generation (child of root, sibling of retrieval) ─</span>
+        <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+            as_type=<span class="st">"generation"</span>,
+            name=<span class="st">"generate-answer"</span>,
+            model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+            model_parameters={<span class="st">"temperature"</span>: <span class="nu">0.3</span>},
+            input={
+                <span class="st">"system"</span>: <span class="st">"You are a QA expert. Use the context provided."</span>,
+                <span class="st">"context"</span>: fake_docs,
+                <span class="st">"user"</span>: <span class="st">"What is boundary value analysis?"</span>,
+            },
+        ) <span class="kw">as</span> gen:
+
+            response = client.chat.completions.<span class="fn">create</span>(
+                model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+                messages=[
+                    {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a QA expert."</span>},
+                    {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: <span class="st">"What is boundary value analysis?"</span>},
+                ],
+                temperature=<span class="nu">0.3</span>,
+            )
+            answer = response.choices[<span class="nu">0</span>].message.content
+
+            <span class="cm"># Update generation with the output after the call</span>
+            gen.<span class="fn">update</span>(output=answer)
+
+        <span class="cm"># ── Step 3: Set final trace output ───────────────────────────</span>
+        root_span.<span class="fn">update</span>(output={<span class="st">"answer"</span>: answer})
+
+<span class="fn">print</span>(<span class="st">"Answer:"</span>, answer)
+langfuse.<span class="fn">flush</span>()
+</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> run it</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">python 03_context_managers.py</span></code></pre>
+      </div>
+
+      <p>In your Langfuse dashboard, click the new trace. You'll see the <strong>timeline view</strong> show three nested observations: <code class="inline">handle-user-question</code> at the top, with <code class="inline">retrieve-context</code> and <code class="inline">generate-answer</code> nested inside it as children. The latency bars show exactly how long each step took.</p>
+
+      <div class="insight">
+        <strong>Why is <code>as_type</code> important?</strong> Setting <code class="inline">as_type="generation"</code> tells Langfuse this span is an LLM call. It unlocks the token usage panel, cost estimation, and makes it eligible for LLM-as-a-judge evaluators in Day 2. Without it, your LLM call is just a plain span.
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- STEP 3: @observe decorator -->
+  <div class="step-section" id="s3">
+    <div class="step-header">
+      <div class="step-number">3</div>
+      <div>
+        <div class="step-title">Method 2: the @observe decorator</div>
+        <div class="step-subtitle">cleaner functions, same power</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>The <code class="inline">@observe</code> decorator is sugar on top of context managers. It automatically wraps a function in a span, captures its arguments as <code class="inline">input</code> and its return value as <code class="inline">output</code>, and properly nests with any parent observation that's active when the function is called.</p>
+
+      <div class="approach-grid">
+        <div class="approach-card">
+          <div class="approach-card-title"><span class="approach-badge" style="background:var(--tag-blue);color:var(--tag-blue-text)">CONTEXT MANAGER</span></div>
+          <div class="approach-card-desc">Explicit. You control exactly what input/output gets logged. Best for complex logic, custom error handling, or when you need the span object mid-function.</div>
+        </div>
+        <div class="approach-card">
+          <div class="approach-card-title"><span class="approach-badge" style="background:var(--tag-purple);color:var(--tag-purple-text)">@OBSERVE DECORATOR</span></div>
+          <div class="approach-card-desc">Clean. Auto-captures function args and return value. Best for simple functions where the args/return are exactly what you want to log.</div>
+        </div>
+      </div>
+
+      <p>Create <code class="inline">04_observe_decorator.py</code>:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> 04_observe_decorator.py</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> langfuse.openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+
+<span class="at">@observe</span>(name=<span class="st">"retrieve-docs"</span>)  <span class="cm"># creates a SPAN automatically</span>
+<span class="kw">def</span> <span class="fn">retrieve_context</span>(query: str) -> list[str]:
+    <span class="cm"># Function args become the span input, return value becomes output</span>
+    <span class="cm"># Simulate retrieval (replace with real vector DB in your app)</span>
+    <span class="kw">return</span> [
+        <span class="st">f"Test technique relevant to: {query}"</span>,
+        <span class="st">"Edge cases should always be tested at boundaries."</span>,
+    ]
+
+
+<span class="at">@observe</span>(name=<span class="st">"llm-generation"</span>, as_type=<span class="st">"generation"</span>)
+<span class="kw">def</span> <span class="fn">generate_answer</span>(question: str, context: list[str]) -> str:
+    system = <span class="st">"You are a QA Architect. Use the context to answer concisely."</span>
+    user_msg = <span class="st">f"Context:\n{chr(10).join(context)}\n\nQuestion: {question}"</span>
+
+    <span class="cm"># Update the generation with structured input for better UI display</span>
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        model_parameters={<span class="st">"temperature"</span>: <span class="nu">0.5</span>},
+        input={<span class="st">"system"</span>: system, <span class="st">"user"</span>: user_msg},
+    )
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: user_msg},
+        ],
+        temperature=<span class="nu">0.5</span>,
+    )
+    <span class="kw">return</span> response.choices[<span class="nu">0</span>].message.content
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-pipeline"</span>)  <span class="cm"># top-level trace</span>
+<span class="kw">def</span> <span class="fn">run_qa_pipeline</span>(question: str) -> str:
+    <span class="cm"># Each call below automatically becomes a CHILD of this function's span</span>
+    context = <span class="fn">retrieve_context</span>(question)
+    answer  = <span class="fn">generate_answer</span>(question, context)
+    <span class="kw">return</span> answer
+
+
+<span class="cm"># propagate_attributes wraps the TOP-LEVEL call (the correct v4 pattern)</span>
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+        trace_name=<span class="st">"QA Architect Query"</span>,
+        user_id=<span class="st">"user-123"</span>,
+        tags=[<span class="st">"qa"</span>, <span class="st">"decorator-demo"</span>],
+        metadata={<span class="st">"tutorial"</span>: <span class="st">"day1-hour2"</span>},
+    ):
+        result = <span class="fn">run_qa_pipeline</span>(<span class="st">"Explain equivalence partitioning."</span>)
+
+    <span class="fn">print</span>(result)
+    langfuse.<span class="fn">flush</span>()
+</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> run it</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">python 04_observe_decorator.py</span></code></pre>
+      </div>
+
+      <p>In the dashboard, click the new trace. You'll see the clean tree: <code class="inline">run_qa_pipeline</code> at top (the trace root), with <code class="inline">retrieve-docs</code> and <code class="inline">llm-generation</code> as children — their inputs are your function arguments, outputs are return values. No extra code needed.</p>
+
+      <div class="warn-box">
+        <strong>Performance note:</strong> <code class="inline">@observe</code> captures all function arguments by default. If you pass large objects (big lists, DataFrames, raw documents), this can add overhead. Disable auto-capture per function: <code class="inline">@observe(capture_input=False, capture_output=False)</code>, then manually set input/output with <code class="inline">update_current_generation()</code>.
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- STEP 4: Nesting -->
+  <div class="step-section" id="s4">
+    <div class="step-header">
+      <div class="step-number">4</div>
+      <div>
+        <div class="step-title">Nesting spans correctly</div>
+        <div class="step-subtitle">the one rule that makes everything work</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Nesting works by <strong>OpenTelemetry context propagation</strong>. Whichever span is currently "active" in the context becomes the parent of anything new you create inside it. Here's what correct vs incorrect nesting looks like:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> nesting_rules.py — read, don't run</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="cm"># ✅ CORRECT: nested with-blocks create a parent-child tree</span>
+<span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(as_type=<span class="st">"span"</span>, name=<span class="st">"parent"</span>) <span class="kw">as</span> parent:
+    <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(as_type=<span class="st">"span"</span>, name=<span class="st">"child-a"</span>):
+        <span class="kw">pass</span>   <span class="cm"># child-a is nested under parent ✓</span>
+    <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(as_type=<span class="st">"generation"</span>, name=<span class="st">"child-b"</span>):
+        <span class="kw">pass</span>   <span class="cm"># child-b is sibling of child-a, both under parent ✓</span>
+
+<span class="cm"># Resulting tree:
+#   parent (SPAN)
+#   ├── child-a (SPAN)
+#   └── child-b (GENERATION)</span>
+
+
+<span class="cm"># ✅ CORRECT: @observe automatically nests based on call stack</span>
+<span class="at">@observe</span>(name=<span class="st">"inner"</span>)
+<span class="kw">def</span> <span class="fn">inner_fn</span>(): ...
+
+<span class="at">@observe</span>(name=<span class="st">"outer"</span>)
+<span class="kw">def</span> <span class="fn">outer_fn</span>():
+    <span class="fn">inner_fn</span>()   <span class="cm"># inner_fn span is a child of outer_fn span ✓</span>
+
+
+<span class="cm"># ❌ WRONG: mixing decorator and propagate_attributes inside the function</span>
+<span class="at">@observe</span>(name=<span class="st">"outer"</span>)
+<span class="kw">def</span> <span class="fn">bad_fn</span>():
+    <span class="kw">with</span> <span class="fn">propagate_attributes</span>(user_id=<span class="st">"x"</span>, tags=[<span class="st">"y"</span>]):
+        <span class="kw">return</span> <span class="fn">inner_fn</span>()   <span class="cm"># tags WON'T appear in UI — see Hour 1 fix</span>
+<span class="cm"># ✅ Fix: put propagate_attributes OUTSIDE the @observe call</span>
+<span class="kw">with</span> <span class="fn">propagate_attributes</span>(user_id=<span class="st">"x"</span>, tags=[<span class="st">"y"</span>]):
+    <span class="fn">bad_fn</span>()   <span class="cm"># now the attributes propagate to all child spans ✓</span>
+
+
+<span class="cm"># ❌ WRONG: sequential blocks are SIBLINGS not children</span>
+<span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(as_type=<span class="st">"span"</span>, name=<span class="st">"step-1"</span>): <span class="kw">pass</span>
+<span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(as_type=<span class="st">"span"</span>, name=<span class="st">"step-2"</span>): <span class="kw">pass</span>
+<span class="cm"># step-1 and step-2 are SIBLINGS (separate root spans = separate traces!)
+# To make them children of the same trace, nest them inside a root span.</span>
+</code></pre>
+      </div>
+
+      <div class="purple-box">
+        <strong>The golden rule:</strong> If you want two spans in the same trace, they must both be created while a common root span is active. Sequential <code class="inline">with</code> blocks at the top level create separate traces — always wrap them in a parent.
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- STEP 5: Enriching generations -->
+  <div class="step-section" id="s5">
+    <div class="step-header">
+      <div class="step-number">5</div>
+      <div>
+        <div class="step-title">Enriching generations</div>
+        <div class="step-subtitle">model_parameters · usage · levels · metadata</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Generations have richer fields than regular spans. The more you fill in, the more useful Langfuse becomes — especially for cost tracking and eval workflows. Create <code class="inline">05_rich_generation.py</code>:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> 05_rich_generation.py</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, time
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, propagate_attributes
+<span class="kw">from</span> langfuse.openai <span class="kw">import</span> OpenAI
+<span class="kw">from</span> datetime <span class="kw">import</span> datetime, timezone
+
+langfuse = <span class="fn">get_client</span>()
+client  = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+SYSTEM_PROMPT = (
+    <span class="st">"You are an experienced QA Architect. "</span>
+    <span class="st">"Answer in structured bullet points."</span>
+)
+
+<span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+    trace_name=<span class="st">"rich-generation-demo"</span>,
+    user_id=<span class="st">"user-123"</span>,
+    tags=[<span class="st">"qa"</span>, <span class="st">"rich-demo"</span>],
+    metadata={<span class="st">"tutorial"</span>: <span class="st">"day1-hour2-step5"</span>},
+):
+    <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+        as_type=<span class="st">"span"</span>,
+        name=<span class="st">"qa-request"</span>,
+        input={<span class="st">"question"</span>: <span class="st">"List 5 types of software testing."</span>},
+    ) <span class="kw">as</span> root:
+
+        <span class="cm"># Track when the request reaches the LLM (for streaming latency)</span>
+        request_start = <span class="fn">datetime</span>.<span class="fn">now</span>(timezone.utc)
+
+        <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+            as_type=<span class="st">"generation"</span>,
+            name=<span class="st">"list-testing-types"</span>,
+            model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+
+            <span class="cm"># Model parameters — shown in Langfuse generation panel</span>
+            model_parameters={
+                <span class="st">"temperature"</span>: <span class="nu">0.2</span>,
+                <span class="st">"max_tokens"</span>: <span class="nu">400</span>,
+            },
+
+            <span class="cm"># Structured input — shows nicely in the UI</span>
+            input=[
+                {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM_PROMPT},
+                {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: <span class="st">"List 5 types of software testing."</span>},
+            ],
+
+            <span class="cm"># Custom metadata for this generation</span>
+            metadata={
+                <span class="st">"prompt_version"</span>: <span class="st">"1.0"</span>,
+                <span class="st">"use_case"</span>: <span class="st">"qa-education"</span>,
+            },
+        ) <span class="kw">as</span> gen:
+
+            response = client.chat.completions.<span class="fn">create</span>(
+                model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+                messages=[
+                    {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM_PROMPT},
+                    {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: <span class="st">"List 5 types of software testing."</span>},
+                ],
+                temperature=<span class="nu">0.2</span>,
+                max_tokens=<span class="nu">400</span>,
+            )
+            answer = response.choices[<span class="nu">0</span>].message.content
+
+            <span class="cm"># Update generation with output + token usage</span>
+            gen.<span class="fn">update</span>(
+                output=answer,
+                <span class="cm"># Manually log token counts (Langfuse uses this for cost tracking)</span>
+                usage={
+                    <span class="st">"input"</span>:  response.usage.prompt_tokens,
+                    <span class="st">"output"</span>: response.usage.completion_tokens,
+                    <span class="st">"total"</span>:  response.usage.total_tokens,
+                },
+            )
+
+        <span class="cm"># Set the root span output</span>
+        root.<span class="fn">update</span>(output={<span class="st">"answer"</span>: answer})
+
+<span class="fn">print</span>(answer)
+langfuse.<span class="fn">flush</span>()
+</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> run it</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">python 05_rich_generation.py</span></code></pre>
+      </div>
+
+      <p>In the dashboard, click this trace's generation. You'll now see the <strong>Usage</strong> panel with token counts, the <strong>Model Parameters</strong> panel showing temperature and max_tokens, and <strong>Metadata</strong> with your custom fields. This is the foundation for cost tracking across thousands of requests.</p>
+
+      <div class="insight">
+        <strong>Token usage and Ollama:</strong> Ollama does return <code class="inline">usage</code> in its responses (same field names as OpenAI). The code above reads <code class="inline">response.usage.prompt_tokens</code> and <code class="inline">response.usage.completion_tokens</code>. If you ever see <code class="inline">None</code>, add <code class="inline">options={"num_predict": 400}</code> to the Ollama request — some models need this hint to return usage stats.
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- STEP 6: Error handling -->
+  <div class="step-section" id="s6">
+    <div class="step-header">
+      <div class="step-number">6</div>
+      <div>
+        <div class="step-title">Error handling &amp; span levels</div>
+        <div class="step-subtitle">capture failures as ERROR spans — not silent gaps</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>One of Langfuse's biggest practical values: when your LLM pipeline fails, you see exactly <em>which step</em> failed and with what error. Context managers make this automatic — the span closes properly even if an exception is thrown. You just need to mark it as an error.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> 06_error_handling.py</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, propagate_attributes
+<span class="kw">from</span> langfuse.openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client  = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+
+<span class="kw">def</span> <span class="fn">risky_retrieval</span>(query: str) -> list[str]:
+    <span class="cm"># Simulate a retrieval that might fail</span>
+    <span class="kw">if</span> <span class="st">"crash"</span> <span class="kw">in</span> query.lower():
+        <span class="kw">raise</span> <span class="ty">ValueError</span>(<span class="st">f"Retrieval service unavailable for query: {query}"</span>)
+    <span class="kw">return</span> [<span class="st">"Relevant test case documentation..."</span>]
+
+
+<span class="kw">def</span> <span class="fn">run_with_error_handling</span>(question: str):
+    <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+        trace_name=<span class="st">"error-demo"</span>,
+        user_id=<span class="st">"user-123"</span>,
+        tags=[<span class="st">"error-handling"</span>],
+        metadata={<span class="st">"tutorial"</span>: <span class="st">"day1-hour2-step6"</span>},
+    ):
+        <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+            as_type=<span class="st">"span"</span>,
+            name=<span class="st">"pipeline-with-error"</span>,
+            input={<span class="st">"question"</span>: question},
+        ) <span class="kw">as</span> root:
+
+            <span class="kw">try</span>:
+                <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+                    as_type=<span class="st">"span"</span>,
+                    name=<span class="st">"retrieval-step"</span>,
+                    input={<span class="st">"query"</span>: question},
+                ) <span class="kw">as</span> retrieval_span:
+
+                    <span class="kw">try</span>:
+                        docs = <span class="fn">risky_retrieval</span>(question)
+                        retrieval_span.<span class="fn">update</span>(
+                            output={<span class="st">"docs"</span>: docs},
+                            level=<span class="st">"DEFAULT"</span>,   <span class="cm"># DEFAULT | DEBUG | WARNING | ERROR</span>
+                        )
+                    <span class="kw">except</span> <span class="ty">ValueError</span> <span class="kw">as</span> e:
+                        <span class="cm"># Mark the retrieval span as ERROR — visible in dashboard</span>
+                        retrieval_span.<span class="fn">update</span>(
+                            level=<span class="st">"ERROR"</span>,
+                            status_message=<span class="fn">str</span>(e),
+                            output={<span class="st">"error"</span>: <span class="fn">str</span>(e)},
+                        )
+                        <span class="cm"># Graceful degradation: continue without context</span>
+                        docs = []
+
+                <span class="cm"># Continue to LLM even if retrieval failed</span>
+                <span class="kw">with</span> langfuse.<span class="fn">start_as_current_observation</span>(
+                    as_type=<span class="st">"generation"</span>,
+                    name=<span class="st">"llm-fallback"</span>,
+                    model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+                    input={<span class="st">"context_available"</span>: <span class="fn">bool</span>(docs), <span class="st">"question"</span>: question},
+                ) <span class="kw">as</span> gen:
+
+                    fallback_msg = (
+                        <span class="st">"Answer from knowledge only (retrieval failed): "</span>
+                        <span class="kw">if</span> <span class="kw">not</span> docs <span class="kw">else</span> <span class="st">""</span>
+                    )
+                    response = client.chat.completions.<span class="fn">create</span>(
+                        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+                        messages=[{
+                            <span class="st">"role"</span>: <span class="st">"user"</span>,
+                            <span class="st">"content"</span>: <span class="st">f"{fallback_msg}{question}"</span>,
+                        }],
+                    )
+                    answer = response.choices[<span class="nu">0</span>].message.content
+                    gen.<span class="fn">update</span>(output=answer)
+
+                root.<span class="fn">update</span>(output={<span class="st">"answer"</span>: answer, <span class="st">"retrieval_failed"</span>: <span class="kw">not</span> <span class="fn">bool</span>(docs)})
+                <span class="kw">return</span> answer
+
+            <span class="kw">except</span> <span class="ty">Exception</span> <span class="kw">as</span> e:
+                <span class="cm"># Catastrophic failure — mark the root span as error</span>
+                root.<span class="fn">update</span>(level=<span class="st">"ERROR"</span>, status_message=<span class="fn">str</span>(e))
+                <span class="kw">raise</span>
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    <span class="cm"># Test 1: normal query</span>
+    result = <span class="fn">run_with_error_handling</span>(<span class="st">"What is smoke testing?"</span>)
+    <span class="fn">print</span>(<span class="st">"Normal query:"</span>, result[:<span class="nu">100</span>])
+
+    <span class="cm"># Test 2: query that triggers retrieval failure</span>
+    result = <span class="fn">run_with_error_handling</span>(<span class="st">"crash: What is regression testing?"</span>)
+    <span class="fn">print</span>(<span class="st">"Degraded query:"</span>, result[:<span class="nu">100</span>])
+
+    langfuse.<span class="fn">flush</span>()
+</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> run it</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">python 06_error_handling.py</span></code></pre>
+      </div>
+
+      <p>In the dashboard you'll now see <strong>two traces</strong>. The second one shows the <code class="inline">retrieval-step</code> span highlighted in red with the error message, while the <code class="inline">llm-fallback</code> generation still succeeded. This is exactly what production debugging looks like — the trace tells you the LLM worked fine, the retrieval didn't.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- STEP 7: Mini Project -->
+  <div class="step-section" id="s7">
+    <div class="step-header">
+      <div class="step-number">7</div>
+      <div>
+        <div class="step-title">Hour 2 mini-project: QA Architect pipeline</div>
+        <div class="step-subtitle">putting it all together in one file</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Combine everything from this hour into a realistic QA Architect assistant that has: a root trace with user metadata, a retrieval span, a generation with rich fields, and error handling. This is the pattern you'll extend in Hours 3 and beyond.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-python">PYTHON</span> 07_qa_architect_pipeline.py</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> langfuse.openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client  = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+<span class="cm"># Simulated knowledge base</span>
+KNOWLEDGE_BASE = {
+    <span class="st">"boundary value analysis"</span>: [
+        <span class="st">"Test at exact boundaries and just outside them."</span>,
+        <span class="st">"For input 1-100: test 0, 1, 2, 99, 100, 101."</span>,
+    ],
+    <span class="st">"equivalence partitioning"</span>: [
+        <span class="st">"Divide inputs into classes that should behave identically."</span>,
+        <span class="st">"Test one value from each partition (valid and invalid)."</span>,
+    ],
+    <span class="st">"default"</span>: [<span class="st">"General QA knowledge base. No specific context found."</span>],
+}
+
+SYSTEM_PROMPT = (
+    <span class="st">"You are an experienced QA Architect with 20 years of software "</span>
+    <span class="st">"industry experience. Provide concise, practical answers with examples."</span>
+)
+
+
+<span class="at">@observe</span>(name=<span class="st">"knowledge-retrieval"</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">retrieve_knowledge</span>(query: str) -> list[str]:
+    query_lower = query.lower()
+    <span class="kw">for</span> key, docs <span class="kw">in</span> KNOWLEDGE_BASE.items():
+        <span class="kw">if</span> key <span class="kw">in</span> query_lower:
+            langfuse.<span class="fn">update_current_span</span>(
+                output={<span class="st">"matched_key"</span>: key, <span class="st">"chunks"</span>: <span class="fn">len</span>(docs)},
+                metadata={<span class="st">"source"</span>: <span class="st">"local-kb"</span>},
+            )
+            <span class="kw">return</span> docs
+    langfuse.<span class="fn">update_current_span</span>(output={<span class="st">"matched_key"</span>: <span class="st">"default"</span>, <span class="st">"chunks"</span>: <span class="nu">1</span>})
+    <span class="kw">return</span> KNOWLEDGE_BASE[<span class="st">"default"</span>]
+
+
+<span class="at">@observe</span>(name=<span class="st">"llm-answer"</span>, as_type=<span class="st">"generation"</span>, capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">generate_qa_answer</span>(question: str, context: list[str]) -> str:
+    context_text = <span class="st">"\n"</span>.join(<span class="st">f"- {c}"</span> <span class="kw">for</span> c <span class="kw">in</span> context)
+    user_msg = <span class="st">f"Context:\n{context_text}\n\nQuestion: {question}"</span>
+
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        model_parameters={<span class="st">"temperature"</span>: <span class="nu">0.3</span>, <span class="st">"max_tokens"</span>: <span class="nu">500</span>},
+        input=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM_PROMPT},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: user_msg},
+        ],
+        metadata={<span class="st">"prompt_version"</span>: <span class="st">"2.0"</span>, <span class="st">"context_used"</span>: <span class="st">"true"</span>},
+    )
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM_PROMPT},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: user_msg},
+        ],
+        temperature=<span class="nu">0.3</span>,
+        max_tokens=<span class="nu">500</span>,
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+
+    langfuse.<span class="fn">update_current_generation</span>(
+        output=answer,
+        usage={
+            <span class="st">"input"</span>:  response.usage.prompt_tokens,
+            <span class="st">"output"</span>: response.usage.completion_tokens,
+        },
+    )
+    <span class="kw">return</span> answer
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-architect-pipeline"</span>)
+<span class="kw">def</span> <span class="fn">qa_architect_query</span>(question: str) -> str:
+    context = <span class="fn">retrieve_knowledge</span>(question)
+    answer  = <span class="fn">generate_qa_answer</span>(question, context)
+    <span class="kw">return</span> answer
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    questions = [
+        <span class="st">"Explain boundary value analysis with an example."</span>,
+        <span class="st">"What is equivalence partitioning?"</span>,
+        <span class="st">"How do you prioritise test cases in an Agile sprint?"</span>,
+    ]
+
+    <span class="kw">for</span> q <span class="kw">in</span> questions:
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">"QA Architect Assistant"</span>,
+            user_id=<span class="st">"user-123"</span>,
+            tags=[<span class="st">"qa"</span>, <span class="st">"architect"</span>, <span class="st">"hour2-project"</span>],
+            metadata={
+                <span class="st">"sdk_version"</span>: <span class="st">"4.7.1"</span>,
+                <span class="st">"use_case"</span>: <span class="st">"qa-education"</span>,
+            },
+        ):
+            result = <span class="fn">qa_architect_query</span>(q)
+            <span class="fn">print</span>(<span class="st">f"\nQ: {q}\nA: {result[:200]}...\n"</span>)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">"\n✓ All 3 traces sent to Langfuse. Check your dashboard!"</span>)
+</code></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename"><span class="lang-tag lang-bash">BASH</span> run the project</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bash-prompt">$</span> <span class="bash-cmd">python 07_qa_architect_pipeline.py</span></code></pre>
+      </div>
+
+      <div class="success-box">
+        <strong>What to look for in the dashboard:</strong> You should see <strong>3 new traces</strong>, each named "QA Architect Assistant". Click any one — you'll see the nested tree: <code class="inline">qa-architect-pipeline</code> → <code class="inline">knowledge-retrieval</code> + <code class="inline">llm-answer</code>. The generation panel shows token counts, model parameters, and structured input/output. All three have the same <code class="inline">user_id</code> so they group in the Users view.
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- CHECKPOINT -->
+  <div class="checkpoint">
+    <div class="checkpoint-title">✓ Hour 2 checkpoint</div>
+    <div class="check-items">
+      <div class="check-item"><span class="check-icon">✓</span> Understand trace → span → generation hierarchy</div>
+      <div class="check-item"><span class="check-icon">✓</span> Build nested spans with context managers</div>
+      <div class="check-item"><span class="check-icon">✓</span> Use @observe decorator for clean functions</div>
+      <div class="check-item"><span class="check-icon">✓</span> Know the nesting golden rule</div>
+      <div class="check-item"><span class="check-icon">✓</span> Enrich generations with model_params + usage</div>
+      <div class="check-item"><span class="check-icon">✓</span> Handle errors as ERROR-level spans</div>
+      <div class="check-item"><span class="check-icon">✓</span> Combined into a QA Architect mini-project</div>
+    </div>
+  </div>
+
+  <!-- EXERCISE -->
+  <div class="exercise">
+    <div class="exercise-header">
+      <span class="exercise-badge">MINI EXERCISE</span>
+      <span class="exercise-title">Extend the pipeline before Hour 3</span>
+    </div>
+    <div class="exercise-body">
+      <p>These exercises deepen your muscle memory with the data model:</p>
+      <ul>
+        <li><strong>Exercise 1 — Add a validation span:</strong> In <code class="inline">07_qa_architect_pipeline.py</code>, add a new <code class="inline">@observe(name="validate-question")</code> function that checks the question isn't empty. Call it inside <code class="inline">qa_architect_query</code> before <code class="inline">retrieve_knowledge</code>. What does the trace tree look like now?</li>
+        <li><strong>Exercise 2 — Different log levels:</strong> Add <code class="inline">level="WARNING"</code> to the generation span when the retrieval falls back to the default knowledge. Find the trace in the dashboard and filter by WARNING level.</li>
+        <li><strong>Exercise 3 — Add a second user:</strong> Run the pipeline with a <code class="inline">user_id="user-456"</code>. Navigate to the Users section in Langfuse — can you see both users and their respective traces?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- NEXT -->
+  <div class="next-card">
+    <div>
+      <div class="next-label">Up next — Hour 3</div>
+      <div class="next-title">Sessions, multi-turn conversations &amp; async</div>
+      <div class="next-desc">Group multiple traces into a session, build a real multi-turn QA chatbot, and handle async functions with <code class="inline">@observe</code>.</div>
+    </div>
+    <div class="next-arrow">→</div>
+  </div>
+
+</main>
+</div>
+
+<script>
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+const sections = document.querySelectorAll('.step-section[id]');
+const sidebarItems = document.querySelectorAll('.sidebar-item[href^="#"]');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      sidebarItems.forEach(a => a.classList.remove('active'));
+      const active = document.querySelector(`.sidebar-item[href="#${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0% -60% 0%' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse + Ollama · Day 2 · Hour 1 · Prompt Management</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#13161e; --surface2:#1a1e28;
+    --border:#252a38; --border2:#2e3548;
+    --text:#e8eaf0; --muted:#6b7394; --dim:#3d4460;
+    --accent:#7c9eff; --accent2:#a78bfa; --accent3:#34d399;
+    --accent4:#fb923c; --accent5:#f472b6; --accent6:#facc15;
+    --code-bg:#0a0c12; --hl:#1e2235;
+    --tb:#1a2540; --tbt:#7c9eff;
+    --tg:#0f2018; --tgt:#34d399;
+    --tp:#1e1530; --tpt:#a78bfa;
+    --to:#201509; --tot:#fb923c;
+    --ty:#1c1805; --tyt:#facc15;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;font-size:16px;}
+
+  /* HEADER */
+  header{border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;background:rgba(13,15,20,.94);backdrop-filter:blur(14px);z-index:100;display:flex;align-items:center;justify-content:space-between;height:56px;}
+  .logo-pill{background:linear-gradient(135deg,var(--accent6),var(--accent4));color:#000;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;letter-spacing:.05em;}
+  .hl{display:flex;align-items:center;gap:12px;}
+  .ht{font-size:13px;color:var(--muted);font-weight:300;}
+  .chips{display:flex;gap:6px;}
+  .chip{font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+  .chip.done{border-color:var(--accent3);color:var(--accent3);background:rgba(52,211,153,.07);}
+  .chip.active{border-color:var(--accent6);color:var(--accent6);background:rgba(250,204,21,.08);}
+
+  /* LAYOUT */
+  .layout{display:flex;min-height:calc(100vh - 56px);}
+
+  /* SIDEBAR */
+  aside{width:245px;flex-shrink:0;border-right:1px solid var(--border);padding:2rem 0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;}
+  .sbs{padding:0 1.25rem;margin-bottom:2rem;}
+  .sbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:.75rem;}
+  .sbi{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:2px;transition:all .15s;}
+  .sbi:hover{background:var(--surface2);color:var(--text);}
+  .sbi.active{background:var(--hl);color:var(--accent6);}
+  .dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;flex-shrink:0;}
+  .dot.done{background:rgba(52,211,153,.15);color:var(--accent3);}
+  .dot.cur{background:rgba(250,204,21,.15);color:var(--accent6);}
+  .dot.todo{background:var(--surface2);color:var(--dim);}
+
+  /* MAIN */
+  main{flex:1;padding:3rem 3.5rem;max-width:900px;}
+
+  /* HERO */
+  .hero{margin-bottom:3rem;padding-bottom:2.5rem;border-bottom:1px solid var(--border);}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent6);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+  .eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent6);}
+  .hero h1{font-family:'Fraunces',serif;font-size:2.6rem;font-weight:300;line-height:1.15;color:var(--text);margin-bottom:1rem;}
+  .hero h1 em{font-style:italic;color:var(--accent6);}
+  .hero-sub{font-size:15px;color:var(--muted);max-width:580px;line-height:1.7;}
+  .hero-meta{display:flex;gap:1.5rem;margin-top:1.5rem;flex-wrap:wrap;}
+  .mb{display:flex;align-items:center;gap:6px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--muted);}
+  .md{width:6px;height:6px;border-radius:50%;background:var(--accent6);}
+
+  /* WHY CARD */
+  .why-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1.5rem 0;}
+  @media(max-width:700px){.why-grid{grid-template-columns:1fr;}}
+  .why-card{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.25rem;}
+  .why-icon{font-size:22px;margin-bottom:.5rem;}
+  .why-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;}
+  .why-desc{font-size:12px;color:var(--muted);line-height:1.6;}
+
+  /* CALLOUTS */
+  .insight{background:rgba(250,204,21,.05);border:1px solid rgba(250,204,21,.2);border-left:3px solid var(--accent6);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .insight strong{color:var(--accent6);font-weight:500;}
+  .warn{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.2);border-left:3px solid var(--accent4);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .warn strong{color:var(--accent4);font-weight:500;}
+  .success{background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.2);border-left:3px solid var(--accent3);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .success strong{color:var(--accent3);font-weight:500;}
+  .purple{background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.2);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .purple strong{color:var(--accent2);font-weight:500;}
+  .blue{background:rgba(124,158,255,.05);border:1px solid rgba(124,158,255,.2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .blue strong{color:var(--accent);font-weight:500;}
+
+  /* STEPS */
+  .step{margin-bottom:3rem;}
+  .shdr{display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;}
+  .snum{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent6),var(--accent4));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#000;flex-shrink:0;}
+  .stitle{font-family:'Fraunces',serif;font-size:1.3rem;font-weight:500;color:var(--text);line-height:1.2;}
+  .ssub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+  .sbody{padding-left:50px;}
+  p{margin-bottom:1rem;color:var(--muted);font-size:15px;}
+  p strong{color:var(--text);font-weight:500;}
+
+  /* CODE */
+  .cb{background:var(--code-bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin:1.25rem 0;}
+  .ch{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;}
+  .cf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .lt{font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .lb{background:var(--tg);color:var(--tgt);}
+  .lp{background:var(--tb);color:var(--tbt);}
+  .lj{background:var(--ty);color:var(--tyt);}
+  .lu{background:var(--to);color:var(--tot);}
+  .copy{background:none;border:1px solid var(--border2);color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:5px;cursor:pointer;transition:all .15s;}
+  .copy:hover{background:var(--surface2);color:var(--text);}
+  .copy.copied{color:var(--accent3);border-color:var(--accent3);}
+  pre{padding:1.25rem 1.5rem;overflow-x:auto;line-height:1.7;}
+  code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+  code.il{background:var(--surface2);border:1px solid var(--border2);padding:1px 6px;border-radius:4px;font-size:12.5px;color:var(--accent6);}
+
+  /* SYNTAX */
+  .kw{color:#c792ea;} .fn{color:#82aaff;} .st{color:#c3e88d;} .cm{color:#4a5568;font-style:italic;}
+  .nu{color:#f78c6c;} .ty{color:#ffcb6b;} .at{color:#fb923c;}
+  .bp{color:var(--accent3);user-select:none;} .bc{color:var(--dim);font-style:italic;}
+  .ek{color:var(--accent4);} .ev{color:var(--accent3);}
+  .var{color:#f472b6;}
+
+  /* PROMPT VISUAL */
+  .prompt-card{background:var(--surface);border:1px solid rgba(250,204,21,.25);border-radius:10px;padding:1.5rem;margin:1.25rem 0;}
+  .pc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+  .pc-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent6);font-weight:700;}
+  .pc-meta{display:flex;gap:8px;}
+  .pc-badge{font-size:10px;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:10px;font-weight:700;}
+  .pc-prod{background:rgba(52,211,153,.15);color:var(--accent3);border:1px solid rgba(52,211,153,.3);}
+  .pc-latest{background:rgba(124,158,255,.15);color:var(--accent);border:1px solid rgba(124,158,255,.3);}
+  .pc-staging{background:rgba(251,146,60,.15);color:var(--accent4);border:1px solid rgba(251,146,60,.3);}
+  .pc-body{font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.8;color:var(--muted);}
+  .pc-var{color:var(--accent6);background:rgba(250,204,21,.1);border-radius:3px;padding:0 3px;}
+  .pc-vars{display:flex;gap:8px;margin-top:1rem;flex-wrap:wrap;}
+  .pc-var-pill{font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:10px;background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.2);color:var(--accent6);}
+
+  /* VERSION FLOW */
+  .version-flow{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin:1.25rem 0;overflow-x:auto;}
+  .vf-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;}
+  .vf-versions{display:flex;gap:0;align-items:center;}
+  .vv{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:.75rem 1rem;min-width:120px;text-align:center;}
+  .vv-num{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--text);margin-bottom:.25rem;}
+  .vv-label{font-size:11px;color:var(--muted);}
+  .vv-badges{display:flex;gap:4px;justify-content:center;margin-top:.5rem;flex-wrap:wrap;}
+  .vf-arrow{padding:0 .75rem;color:var(--dim);font-size:18px;}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:13.5px;}
+  th{text-align:left;padding:10px 14px;background:var(--surface);border:1px solid var(--border2);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:500;}
+  td{padding:10px 14px;border:1px solid var(--border);color:var(--muted);vertical-align:top;line-height:1.5;font-size:13px;}
+  tr:hover td{background:var(--surface);}
+  td strong{color:var(--text);font-weight:500;}
+
+  /* WORKFLOW STEPS */
+  .workflow{display:flex;flex-direction:column;gap:0;margin:1.5rem 0;}
+  .wf-item{display:flex;gap:14px;position:relative;}
+  .wf-item:not(:last-child)::before{content:'';position:absolute;left:14px;top:36px;bottom:0;width:1px;background:var(--border2);}
+  .wf-num{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent6),var(--accent4));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#000;flex-shrink:0;margin-top:2px;}
+  .wf-body{padding-bottom:1.5rem;flex:1;}
+  .wf-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;}
+  .wf-desc{font-size:13px;color:var(--muted);line-height:1.6;}
+
+  /* UI STEPS */
+  .ui-steps{counter-reset:ui-step;}
+  .ui-step{counter-increment:ui-step;display:flex;gap:12px;margin-bottom:12px;font-size:14px;color:var(--muted);}
+  .ui-step::before{content:counter(ui-step);min-width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);flex-shrink:0;margin-top:1px;}
+
+  /* CHECKPOINT */
+  .checkpoint{background:linear-gradient(135deg,rgba(250,204,21,.05),rgba(251,146,60,.05));border:1px solid rgba(250,204,21,.2);border-radius:10px;padding:1.5rem;margin:2.5rem 0;}
+  .cp-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent6);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;}
+  .cp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;}
+  .cp-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);}
+  .cp-icon{color:var(--accent6);flex-shrink:0;}
+
+  /* EXERCISE */
+  .exercise{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin-top:2rem;}
+  .ex-hdr{display:flex;align-items:center;gap:10px;margin-bottom:1rem;}
+  .ex-badge{background:rgba(250,204,21,.1);color:var(--accent6);border:1px solid rgba(250,204,21,.3);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.08em;}
+  .ex-title{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:500;color:var(--text);}
+  .ex-body{font-size:14px;color:var(--muted);line-height:1.7;}
+  .ex-body ul{padding-left:1.25rem;margin-top:.5rem;}
+  .ex-body li{margin-bottom:8px;}
+
+  /* NEXT */
+  .next{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:2.5rem;}
+  .nl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
+  .nt{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:500;color:var(--text);}
+  .nd{font-size:13px;color:var(--muted);margin-top:4px;}
+  .na{font-size:22px;color:var(--accent6);flex-shrink:0;}
+
+  hr.div{border:none;border-top:1px solid var(--border);margin:2.5rem 0;}
+  ::-webkit-scrollbar{width:6px;height:6px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+  @media(max-width:768px){aside{display:none;}main{padding:2rem 1.5rem;}.hero h1{font-size:1.9rem;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hl">
+    <span class="logo-pill">DAY 2</span>
+    <span class="ht">Langfuse · Prompt Management · Ollama</span>
+  </div>
+  <div class="chips">
+    <span class="chip done">Day 1 ✓</span>
+    <span class="chip active">Day 2 · H1</span>
+    <span class="chip">H2</span>
+    <span class="chip">H3</span>
+  </div>
+</header>
+
+<div class="layout">
+<aside>
+  <div class="sbs">
+    <div class="sbl">Hour 1 · Steps</div>
+    <a class="sbi active" href="#s1"><span class="dot cur">1</span> Why prompt management?</a>
+    <a class="sbi" href="#s2"><span class="dot todo">2</span> Concepts: versions & labels</a>
+    <a class="sbi" href="#s3"><span class="dot todo">3</span> Create prompt via SDK</a>
+    <a class="sbi" href="#s4"><span class="dot todo">4</span> Create prompt via UI</a>
+    <a class="sbi" href="#s5"><span class="dot todo">5</span> get_prompt() & compile()</a>
+    <a class="sbi" href="#s6"><span class="dot todo">6</span> Link prompt to traces</a>
+    <a class="sbi" href="#s7"><span class="dot todo">7</span> Version & deploy workflow</a>
+    <a class="sbi" href="#s8"><span class="dot todo">8</span> Fallback & caching</a>
+    <a class="sbi" href="#s9"><span class="dot todo">9</span> Hour 1 mini-project</a>
+  </div>
+  <div class="sbs">
+    <div class="sbl">Day 2 Plan</div>
+    <a class="sbi" href="#s1"><span class="dot cur">H1</span> Prompt management</a>
+    <a class="sbi" href="#"><span class="dot todo">H2</span> Scoring & user feedback</a>
+    <a class="sbi" href="#"><span class="dot todo">H3</span> LLM-as-a-judge evals</a>
+  </div>
+  <div class="sbs">
+    <div class="sbl">Key concepts</div>
+    <div style="font-size:12px;color:var(--muted);padding:0 10px;line-height:1.9;">
+      <div><span style="color:var(--accent6)">create_prompt()</span> — push to Langfuse</div>
+      <div><span style="color:var(--accent3)">get_prompt()</span> — pull at runtime</div>
+      <div><span style="color:var(--accent2)">compile()</span> — fill variables</div>
+      <div><span style="color:var(--accent4)">production label</span> — zero-code deploy</div>
+    </div>
+  </div>
+</aside>
+
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eyebrow">Day 2 · Hour 1 of 9</div>
+    <h1>Prompt <em>management</em><br>without code deploys</h1>
+    <p class="hero-sub">Version your prompts in Langfuse, pull them at runtime with one line, and update them in the UI — no redeploy needed. The QA Architect chatbot gets its first production-grade prompt pipeline.</p>
+    <div class="hero-meta">
+      <span class="mb"><span class="md"></span> ~60 minutes</span>
+      <span class="mb"><span class="md" style="background:var(--accent2)"></span> 4 Python files</span>
+      <span class="mb"><span class="md" style="background:var(--accent4)"></span> Builds on Day 1 capstone</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: WHY -->
+  <div class="step" id="s1">
+    <div class="shdr">
+      <div class="snum">1</div>
+      <div>
+        <div class="stitle">Why prompt management?</div>
+        <div class="ssub">the problem with hardcoded prompts</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Look at your Day 1 capstone — the QA Architect system prompt is hardcoded in <code class="il">11_capstone.py</code>. Every time a QA lead wants to tweak the persona, tone, or instructions, they need to:</p>
+
+      <div class="why-grid">
+        <div class="why-card">
+          <div class="why-icon">🔴</div>
+          <div class="why-title">Without prompt management</div>
+          <div class="why-desc">Edit Python file → git commit → code review → merge → CI/CD pipeline → deploy → wait. A 5-word change to a prompt takes hours or days and requires engineering involvement.</div>
+        </div>
+        <div class="why-card">
+          <div class="why-icon">🟢</div>
+          <div class="why-title">With Langfuse prompt management</div>
+          <div class="why-desc">Edit prompt in Langfuse UI → click Save → click "Set as production" → done in 30 seconds. Your running app picks it up on the next request. Zero engineering involvement needed.</div>
+        </div>
+      </div>
+
+      <p>You also get <strong>version history</strong> (every change is tracked), <strong>rollback</strong> (one click to revert), <strong>A/B testing</strong> (different labels per environment), and <strong>prompt-to-trace linking</strong> (see exactly which version of a prompt generated which output).</p>
+
+      <div class="insight">
+        <strong>Real impact:</strong> Langfuse traces every generation with its <code class="il">prompt_name</code> and <code class="il">prompt_version</code>. When something goes wrong in production, you can see exactly which prompt version caused it — not just "the prompt was wrong".
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 2: CONCEPTS -->
+  <div class="step" id="s2">
+    <div class="shdr">
+      <div class="snum">2</div>
+      <div>
+        <div class="stitle">Core concepts: versions & labels</div>
+        <div class="ssub">the mental model before touching code</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Langfuse prompts have two orthogonal concepts you need to understand before writing any code:</p>
+
+      <div class="version-flow">
+        <div class="vf-title">Versions vs Labels — how they work together</div>
+        <div class="vf-versions">
+          <div class="vv">
+            <div class="vv-num">v1</div>
+            <div class="vv-label">Initial version</div>
+            <div class="vv-badges">
+              <span class="pc-badge" style="background:rgba(52,211,153,.1);color:var(--accent3);border:1px solid rgba(52,211,153,.25);font-size:9px;">old prod</span>
+            </div>
+          </div>
+          <div class="vf-arrow">→</div>
+          <div class="vv">
+            <div class="vv-num">v2</div>
+            <div class="vv-label">Added examples</div>
+            <div class="vv-badges">
+              <span class="pc-badge pc-staging" style="font-size:9px;">staging</span>
+            </div>
+          </div>
+          <div class="vf-arrow">→</div>
+          <div class="vv" style="border-color:rgba(250,204,21,.4);">
+            <div class="vv-num" style="color:var(--accent6);">v3</div>
+            <div class="vv-label">Latest change</div>
+            <div class="vv-badges">
+              <span class="pc-badge pc-prod" style="font-size:9px;">production</span>
+              <span class="pc-badge pc-latest" style="font-size:9px;">latest</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;font-size:12px;color:var(--muted);line-height:1.8;">
+          <div>• <strong style="color:var(--text);">Versions</strong> — immutable, numbered automatically (1, 2, 3…). Every save creates a new version. You can never edit or delete a version.</div>
+          <div>• <strong style="color:var(--text);">Labels</strong> — mutable pointers to versions. <code class="il">production</code> = what your app pulls by default. <code class="il">latest</code> = auto-maintained by Langfuse. You create custom ones freely.</div>
+          <div>• <strong style="color:var(--text);">Your code references labels, never version numbers.</strong> Moving <code class="il">production</code> from v2 to v3 requires zero code change.</div>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th>Prompt Type</th><th>Format</th><th>Best for</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Text prompt</strong></td>
+            <td>A single string. Variables use <code class="il">{{variable}}</code> syntax.</td>
+            <td>System prompts, simple completions, one-shot instructions</td>
+          </tr>
+          <tr>
+            <td><strong>Chat prompt</strong></td>
+            <td>Array of <code class="il">[{role, content}]</code> messages with variables</td>
+            <td>Multi-turn chat templates, few-shot examples baked in</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 3: CREATE VIA SDK -->
+  <div class="step" id="s3">
+    <div class="shdr">
+      <div class="snum">3</div>
+      <div>
+        <div class="stitle">Create prompts via the Python SDK</div>
+        <div class="ssub">01_create_prompts.py — push text & chat prompts</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>You can create prompts programmatically — useful for seeding a project or automating prompt pipelines. Create <code class="il">01_create_prompts.py</code> inside a new <code class="il">day2/</code> folder:</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lb">BASH</span> setup</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bp">$</span> mkdir day2 && cd day2</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> day2/01_create_prompts.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+load_dotenv(<span class="st">"../.env"</span>)   <span class="cm"># .env is one level up in langfuse-tutorial/</span>
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client
+
+langfuse = <span class="fn">get_client</span>()
+
+<span class="cm"># ─────────────────────────────────────────────────────────────────
+# PROMPT 1: Text prompt (single string, good for system messages)
+# Variables use {{double_curly_brace}} syntax
+# ─────────────────────────────────────────────────────────────────</span>
+text_prompt = langfuse.<span class="fn">create_prompt</span>(
+    name=<span class="st">"qa-architect-system"</span>,
+    type=<span class="st">"text"</span>,
+    prompt=(
+        <span class="st">"You are an experienced QA Architect with {{experience_years}} years of "</span>
+        <span class="st">"software industry experience. You specialise in {{specialisation}}. "</span>
+        <span class="st">"Your communication style is {{style}}. "</span>
+        <span class="st">"Always provide practical, actionable advice with concrete examples."</span>
+    ),
+    config={                          <span class="cm"># model parameters stored alongside prompt</span>
+        <span class="st">"model"</span>:       <span class="st">"llama3.2"</span>,
+        <span class="st">"temperature"</span>: <span class="nu">0.5</span>,
+        <span class="st">"max_tokens"</span>:  <span class="nu">500</span>,
+    },
+    labels=[<span class="st">"production"</span>],           <span class="cm"># immediately mark as production</span>
+)
+<span class="fn">print</span>(<span class="st">f"✓ Text prompt created:  {text_prompt.name} v{text_prompt.version}"</span>)
+
+
+<span class="cm"># ─────────────────────────────────────────────────────────────────
+# PROMPT 2: Chat prompt (array of messages — great for few-shot)
+# ─────────────────────────────────────────────────────────────────</span>
+chat_prompt = langfuse.<span class="fn">create_prompt</span>(
+    name=<span class="st">"qa-test-case-chat"</span>,
+    type=<span class="st">"chat"</span>,
+    prompt=[
+        {
+            <span class="st">"role"</span>: <span class="st">"system"</span>,
+            <span class="st">"content"</span>: (
+                <span class="st">"You are a QA Architect specialising in test case design. "</span>
+                <span class="st">"Generate test cases for the {{feature_type}} feature described. "</span>
+                <span class="st">"Use {{test_format}} format. Cover: happy path, edge cases, and error scenarios."</span>
+            ),
+        },
+        {
+            <span class="st">"role"</span>: <span class="st">"user"</span>,
+            <span class="st">"content"</span>: <span class="st">"Feature: {{feature_description}}"</span>,
+        },
+    ],
+    config={
+        <span class="st">"model"</span>:       <span class="st">"llama3.2"</span>,
+        <span class="st">"temperature"</span>: <span class="nu">0.3</span>,   <span class="cm"># lower temp = more consistent test cases</span>
+    },
+    labels=[<span class="st">"production"</span>],
+)
+<span class="fn">print</span>(<span class="st">f"✓ Chat prompt created:  {chat_prompt.name} v{chat_prompt.version}"</span>)
+<span class="fn">print</span>(<span class="st">"\nCheck Langfuse UI → Prompt Management to see both prompts."</span>)
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 01_create_prompts.py</code></pre>
+      </div>
+
+      <div class="success">
+        <strong>In the dashboard:</strong> Go to <strong>Prompt Management</strong> in the left sidebar. You'll see both prompts — <code class="il">qa-architect-system</code> and <code class="il">qa-test-case-chat</code> — each at version 1 with the <code class="il">production</code> label. Click into either one to see the template, variables, config, and version history.
+      </div>
+
+      <div class="warn">
+        <strong>create_prompt() is idempotent only by name:</strong> Calling it again with the same name creates a <em>new version</em>, it does not update in place. This is intentional — every call creates an immutable version. If you run <code class="il">01_create_prompts.py</code> twice, you'll have v1 and v2 of each prompt.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 4: UI -->
+  <div class="step" id="s4">
+    <div class="shdr">
+      <div class="snum">4</div>
+      <div>
+        <div class="stitle">Create & edit prompts in the UI</div>
+        <div class="ssub">the no-code workflow for non-engineers</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>The UI is where non-technical team members — product managers, QA leads, domain experts — iterate on prompts without ever touching code. Here's the exact workflow:</p>
+
+      <div class="workflow">
+        <div class="wf-item">
+          <div class="wf-num">1</div>
+          <div class="wf-body">
+            <div class="wf-title">Open Prompt Management</div>
+            <div class="wf-desc">In your Langfuse project sidebar → <strong>Prompt Management</strong>. Click <strong>+ New Prompt</strong> (or click an existing one to edit).</div>
+          </div>
+        </div>
+        <div class="wf-item">
+          <div class="wf-num">2</div>
+          <div class="wf-body">
+            <div class="wf-title">Edit the prompt text</div>
+            <div class="wf-desc">The editor supports <code class="il">{{variable}}</code> syntax. Variables are automatically detected and shown in the Variables panel on the right. Try editing <code class="il">qa-architect-system</code> — change <code class="il">{{experience_years}}</code> to a fixed number like "20".</div>
+          </div>
+        </div>
+        <div class="wf-item">
+          <div class="wf-num">3</div>
+          <div class="wf-body">
+            <div class="wf-title">Test in the Playground</div>
+            <div class="wf-desc">Click <strong>Playground</strong> tab. Fill in variable values and run it against a model. This tests your prompt before deploying — no code needed.</div>
+          </div>
+        </div>
+        <div class="wf-item">
+          <div class="wf-num">4</div>
+          <div class="wf-body">
+            <div class="wf-title">Save as new version</div>
+            <div class="wf-desc">Click <strong>Save</strong>. This creates a new immutable version (e.g. v2). It automatically gets the <code class="il">latest</code> label. The <code class="il">production</code> label stays on v1 until you move it.</div>
+          </div>
+        </div>
+        <div class="wf-item">
+          <div class="wf-num">5</div>
+          <div class="wf-body">
+            <div class="wf-title">Promote to production</div>
+            <div class="wf-desc">In the version list, click v2 → <strong>Add Label</strong> → type <code class="il">production</code> → confirm. Your running app will pick this up on the next fetch (within cache TTL, default 60s). Zero deployment needed.</div>
+          </div>
+        </div>
+        <div class="wf-item">
+          <div class="wf-num">6</div>
+          <div class="wf-body">
+            <div class="wf-title">Rollback if needed</div>
+            <div class="wf-desc">Move the <code class="il">production</code> label back to v1. Done in one click. The bad v2 is still in history — you can always inspect it.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 5: get_prompt & compile -->
+  <div class="step" id="s5">
+    <div class="shdr">
+      <div class="snum">5</div>
+      <div>
+        <div class="stitle">get_prompt() and compile()</div>
+        <div class="ssub">02_use_prompts.py — pull from Langfuse at runtime</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>This is the core runtime pattern. <code class="il">get_prompt()</code> fetches the prompt from Langfuse (cached for 60s by default). <code class="il">compile()</code> fills in the <code class="il">{{variables}}</code>. The result is a string or message list ready to send to your LLM.</p>
+
+      <div class="prompt-card">
+        <div class="pc-header">
+          <span class="pc-name">qa-architect-system</span>
+          <div class="pc-meta">
+            <span class="pc-badge pc-prod">production</span>
+            <span class="pc-badge" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border2);font-size:9px;">v1</span>
+          </div>
+        </div>
+        <div class="pc-body">
+          You are an experienced QA Architect with <span class="pc-var">{{experience_years}}</span> years of<br>
+          software industry experience. You specialise in <span class="pc-var">{{specialisation}}</span>.<br>
+          Your communication style is <span class="pc-var">{{style}}</span>.<br>
+          Always provide practical, actionable advice with concrete examples.
+        </div>
+        <div class="pc-vars">
+          <span class="pc-var-pill">{{experience_years}}</span>
+          <span class="pc-var-pill">{{specialisation}}</span>
+          <span class="pc-var-pill">{{style}}</span>
+        </div>
+      </div>
+
+      <p>Create <code class="il">day2/02_use_prompts.py</code>:</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> day2/02_use_prompts.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+<span class="cm"># ─────────────────────────────────────────────────────────────────
+# PATTERN 1: Text prompt — get, compile, use
+# ─────────────────────────────────────────────────────────────────</span>
+
+<span class="cm"># get_prompt() fetches from Langfuse (cached 60s)
+# No label = uses 'production' label automatically</span>
+system_prompt_obj = langfuse.<span class="fn">get_prompt</span>(<span class="st">"qa-architect-system"</span>)
+
+<span class="fn">print</span>(<span class="st">f"Loaded: {system_prompt_obj.name} v{system_prompt_obj.version}"</span>)
+<span class="fn">print</span>(<span class="st">f"Labels: {system_prompt_obj.labels}\n"</span>)
+
+<span class="cm"># compile() fills {{variables}} with actual values → returns a string</span>
+compiled_system = system_prompt_obj.<span class="fn">compile</span>(
+    experience_years=<span class="st">"20"</span>,
+    specialisation=<span class="st">"test automation and CI/CD pipelines"</span>,
+    style=<span class="st">"concise and practical"</span>,
+)
+<span class="fn">print</span>(<span class="st">"Compiled system prompt:"</span>)
+<span class="fn">print</span>(compiled_system)
+<span class="fn">print</span>()
+
+
+<span class="cm"># ─────────────────────────────────────────────────────────────────
+# PATTERN 2: Chat prompt — get, compile, use as messages list
+# ─────────────────────────────────────────────────────────────────</span>
+chat_prompt_obj = langfuse.<span class="fn">get_prompt</span>(<span class="st">"qa-test-case-chat"</span>)
+
+<span class="cm"># For chat prompts, compile() returns a list of {role, content} dicts</span>
+compiled_messages = chat_prompt_obj.<span class="fn">compile</span>(
+    feature_type=<span class="st">"login"</span>,
+    test_format=<span class="st">"Gherkin (Given/When/Then)"</span>,
+    feature_description=<span class="st">"User login with email and password. Max 3 attempts before lockout."</span>,
+)
+<span class="fn">print</span>(<span class="st">"Compiled chat messages:"</span>)
+<span class="kw">for</span> msg <span class="kw">in</span> compiled_messages:
+    <span class="fn">print</span>(<span class="st">f"  [{msg['role']}]: {msg['content'][:80]}..."</span>)
+<span class="fn">print</span>()
+
+
+<span class="cm"># ─────────────────────────────────────────────────────────────────
+# PATTERN 3: Get specific version or label
+# ─────────────────────────────────────────────────────────────────</span>
+<span class="cm"># Get a specific version number</span>
+v1_prompt = langfuse.<span class="fn">get_prompt</span>(<span class="st">"qa-architect-system"</span>, version=<span class="nu">1</span>)
+<span class="fn">print</span>(<span class="st">f"Specific version: v{v1_prompt.version}"</span>)
+
+<span class="cm"># Get a specific label (e.g. staging)</span>
+<span class="cm"># latest_prompt = langfuse.get_prompt("qa-architect-system", label="latest")</span>
+
+<span class="cm"># Read model config stored with the prompt</span>
+<span class="fn">print</span>(<span class="st">f"Config from prompt: {system_prompt_obj.config}"</span>)
+model      = system_prompt_obj.config.<span class="fn">get</span>(<span class="st">"model"</span>, os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>))
+temperature = system_prompt_obj.config.<span class="fn">get</span>(<span class="st">"temperature"</span>, <span class="nu">0.5</span>)
+
+<span class="fn">print</span>(<span class="st">f"\nUsing model={model}, temperature={temperature}\n"</span>)
+
+<span class="cm"># ─────────────────────────────────────────────────────────────────
+# PATTERN 4: Use the compiled prompt in an actual LLM call
+# ─────────────────────────────────────────────────────────────────</span>
+<span class="fn">print</span>(<span class="st">"Sending to LLM..."</span>)
+response = client.chat.completions.<span class="fn">create</span>(
+    model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+    messages=[
+        {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: compiled_system},
+        {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: <span class="st">"What are the top 3 test types for an API?"</span>},
+    ],
+    temperature=temperature,
+)
+<span class="fn">print</span>(<span class="st">"\nResponse:"</span>)
+<span class="fn">print</span>(response.choices[<span class="nu">0</span>].message.content)
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 02_use_prompts.py</code></pre>
+      </div>
+
+      <div class="insight">
+        <strong>config is your model settings store:</strong> Notice that <code class="il">system_prompt_obj.config</code> returns the dict you passed at creation — <code class="il">{"model": "llama3.2", "temperature": 0.5}</code>. This means your model parameters live alongside the prompt in Langfuse, not in code. When someone updates the temperature in the UI, your app picks it up automatically at next fetch — another zero-deploy change.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 6: Link prompt to traces -->
+  <div class="step" id="s6">
+    <div class="shdr">
+      <div class="snum">6</div>
+      <div>
+        <div class="stitle">Link prompts to traces</div>
+        <div class="ssub">03_linked_traces.py — see which version caused which output</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>This is where prompt management becomes truly powerful. By linking a prompt version to a generation, Langfuse shows you — per trace — exactly which prompt version was used. When you later look at a bad output, you can see if it was caused by v1 or v2 of your prompt.</p>
+
+      <p>Create <code class="il">day2/03_linked_traces.py</code>:</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> day2/03_linked_traces.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client, observe, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-answer"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">answer_with_prompt</span>(question: str) -> str:
+
+    <span class="cm"># 1. Fetch the production prompt from Langfuse</span>
+    prompt_obj = langfuse.<span class="fn">get_prompt</span>(<span class="st">"qa-architect-system"</span>)   <span class="cm"># production label</span>
+
+    <span class="cm"># 2. Compile with variable values</span>
+    system = prompt_obj.<span class="fn">compile</span>(
+        experience_years=<span class="st">"20"</span>,
+        specialisation=<span class="st">"test case design and quality strategy"</span>,
+        style=<span class="st">"concise, structured bullet points"</span>,
+    )
+
+    <span class="cm"># 3. Update generation with model + input + PROMPT LINK
+    #    langfuse_prompt links this generation to the exact prompt version</span>
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        model_parameters={
+            <span class="st">"temperature"</span>: prompt_obj.config.<span class="fn">get</span>(<span class="st">"temperature"</span>, <span class="nu">0.5</span>),
+        },
+        input=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+        <span class="cm"># ✅ KEY: this links the generation to the prompt version</span>
+        prompt=prompt_obj,
+    )
+
+    <span class="cm"># 4. Call the LLM</span>
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+        temperature=prompt_obj.config.<span class="fn">get</span>(<span class="st">"temperature"</span>, <span class="nu">0.5</span>),
+    )
+    reply = response.choices[<span class="nu">0</span>].message.content
+
+    <span class="cm"># 5. Log output and token usage</span>
+    langfuse.<span class="fn">update_current_generation</span>(
+        output=reply,
+        usage={
+            <span class="st">"input"</span>:  response.usage.prompt_tokens,
+            <span class="st">"output"</span>: response.usage.completion_tokens,
+        },
+    )
+    <span class="kw">return</span> reply
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    questions = [
+        <span class="st">"What is the difference between verification and validation?"</span>,
+        <span class="st">"How do you decide test coverage thresholds for a new feature?"</span>,
+        <span class="st">"What makes a good bug report?"</span>,
+    ]
+
+    <span class="kw">for</span> q <span class="kw">in</span> questions:
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">"Prompt-linked QA answer"</span>,
+            user_id=<span class="st">"user-123"</span>,
+            tags=[<span class="st">"prompt-linked"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"tutorial"</span>: <span class="st">"day2-hour1"</span>},
+        ):
+            answer = <span class="fn">answer_with_prompt</span>(q)
+            <span class="fn">print</span>(<span class="st">f"Q: {q}"</span>)
+            <span class="fn">print</span>(<span class="st">f"A: {answer[:150]}...\n"</span>)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">"✓ Check traces in Langfuse — each generation shows 'Prompt: qa-architect-system v1'"</span>)
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 03_linked_traces.py</code></pre>
+      </div>
+
+      <div class="success">
+        <strong>What to look for in the dashboard:</strong> Click a trace → click the <code class="il">qa-answer</code> generation. In the generation panel you'll see a new <strong>Prompt</strong> field showing <code class="il">qa-architect-system · v1</code> as a clickable link. From there you can jump directly to the prompt in Prompt Management. This is the version-to-output link that makes debugging trivial.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 7: Deploy workflow -->
+  <div class="step" id="s7">
+    <div class="shdr">
+      <div class="snum">7</div>
+      <div>
+        <div class="stitle">Version & deploy without code changes</div>
+        <div class="ssub">04_deploy_workflow.py — two versions, zero redeploys</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>This is the core value demo. We'll create v2 of the prompt via Python, promote it to production, and show that the running app picks it up automatically.</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> day2/04_deploy_workflow.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, time
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> get_client
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+QUESTION = <span class="st">"What is exploratory testing and when should I use it?"</span>
+
+
+<span class="kw">def</span> <span class="fn">run_with_current_production_prompt</span>(label: str = <span class="st">"production"</span>) -> dict:
+    <span class="cm">"""Fetch production prompt, compile, call LLM. Returns version used + answer."""</span>
+    prompt_obj = langfuse.<span class="fn">get_prompt</span>(<span class="st">"qa-architect-system"</span>, label=label,
+                                       cache_ttl_seconds=<span class="nu">0</span>)  <span class="cm"># bypass cache for demo</span>
+    system = prompt_obj.<span class="fn">compile</span>(
+        experience_years=<span class="st">"20"</span>,
+        specialisation=<span class="st">"exploratory and session-based testing"</span>,
+        style=<span class="st">"practical"</span>,
+    )
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: system},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: QUESTION},
+        ],
+    )
+    <span class="kw">return</span> {
+        <span class="st">"version"</span>: prompt_obj.version,
+        <span class="st">"answer"</span>:  response.choices[<span class="nu">0</span>].message.content[:<span class="nu">200</span>],
+    }
+
+
+<span class="cm"># ── PHASE 1: Run with current production (v1) ────────────────────</span>
+<span class="fn">print</span>(<span class="st">"=== PHASE 1: Running with current production prompt ==="</span>)
+result_v1 = <span class="fn">run_with_current_production_prompt</span>()
+<span class="fn">print</span>(<span class="st">f"Prompt version used : v{result_v1['version']}"</span>)
+<span class="fn">print</span>(<span class="st">f"Answer snippet      : {result_v1['answer']}...\n"</span>)
+
+
+<span class="cm"># ── PHASE 2: Create v2 with improved prompt ──────────────────────</span>
+<span class="fn">print</span>(<span class="st">"=== PHASE 2: Creating improved v2 prompt ==="</span>)
+v2 = langfuse.<span class="fn">create_prompt</span>(
+    name=<span class="st">"qa-architect-system"</span>,   <span class="cm"># same name = new version of existing prompt</span>
+    type=<span class="st">"text"</span>,
+    prompt=(
+        <span class="st">"You are a senior QA Architect with {{experience_years}} years of "</span>
+        <span class="st">"deep expertise in {{specialisation}}. "</span>
+        <span class="st">"IMPROVED v2: Always structure your answer with: "</span>
+        <span class="st">"1) Definition 2) When to use 3) Concrete example 4) Common mistakes. "</span>
+        <span class="st">"Communication style: {{style}}."</span>
+    ),
+    config={"model": <span class="st">"llama3.2"</span>, <span class="st">"temperature"</span>: <span class="nu">0.4</span>},
+    labels=[<span class="st">"staging"</span>],   <span class="cm"># push to staging first, NOT production yet</span>
+)
+<span class="fn">print</span>(<span class="st">f"Created: {v2.name} v{v2.version} (labels: {v2.labels})\n"</span>)
+
+
+<span class="cm"># ── PHASE 3: Promote v2 to production ────────────────────────────</span>
+<span class="fn">print</span>(<span class="st">"=== PHASE 3: Promoting v2 to production ==="</span>)
+<span class="cm"># In a real workflow you'd test v2 in staging first.
+# Here we promote immediately for the demo.</span>
+langfuse.<span class="fn">create_prompt</span>(
+    name=<span class="st">"qa-architect-system"</span>,
+    type=<span class="st">"text"</span>,
+    prompt=v2.prompt,
+    config=v2.config,
+    labels=[<span class="st">"production"</span>],   <span class="cm"># now this version is production</span>
+)
+<span class="fn">print</span>(<span class="st">"Production label moved to v2.\n"</span>)
+
+
+<span class="cm"># ── PHASE 4: Same code, new prompt, no redeploy ──────────────────</span>
+<span class="fn">print</span>(<span class="st">"=== PHASE 4: Same code — picks up new production prompt ==="</span>)
+result_v2 = <span class="fn">run_with_current_production_prompt</span>()
+<span class="fn">print</span>(<span class="st">f"Prompt version used : v{result_v2['version']}"</span>)
+<span class="fn">print</span>(<span class="st">f"Answer snippet      : {result_v2['answer']}..."</span>)
+
+<span class="fn">print</span>(<span class="st">"\n✓ Same function, different prompt version — zero code change!"</span>)
+langfuse.<span class="fn">flush</span>()
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run it</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 04_deploy_workflow.py</code></pre>
+      </div>
+
+      <div class="success">
+        <strong>What you'll see:</strong> Phase 1 uses v1. Phase 4 uses v2 (or v3 if you ran create_prompts.py twice). The answer in Phase 4 should be structured differently because the new prompt instructs it to use numbered sections. Same code. Different output. Different prompt version. This is the entire value proposition.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 8: Fallback & caching -->
+  <div class="step" id="s8">
+    <div class="shdr">
+      <div class="snum">8</div>
+      <div>
+        <div class="stitle">Fallback & caching</div>
+        <div class="ssub">production safety when Langfuse is unreachable</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Langfuse adds <strong>zero latency</strong> to your app because prompts are cached locally. But what happens if Langfuse Cloud is temporarily unavailable when your service restarts (cache is cold)?</p>
+
+      <div class="purple">
+        <strong>The caching system:</strong> First call fetches from Langfuse and caches for <strong>60 seconds</strong> (default TTL). Subsequent calls within that window return from local cache instantly — zero network round-trip. Configure TTL: <code class="il">get_prompt("name", cache_ttl_seconds=300)</code> for 5 minutes. Set to <code class="il">0</code> to bypass (good for dev/testing). Set to a large number (e.g. 86400) to cache for a day.
+      </div>
+
+      <p>Use <code class="il">fallback</code> to keep your app running if Langfuse is unreachable:</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> fallback pattern — add this to any production function</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="cm"># SAFE PRODUCTION PATTERN: always have a fallback prompt string</span>
+FALLBACK_SYSTEM = (
+    <span class="st">"You are an experienced QA Architect. "</span>
+    <span class="st">"Provide practical, actionable advice."</span>
+)
+
+<span class="kw">def</span> <span class="fn">get_system_prompt_safely</span>(**variables) -> <span class="fn">tuple</span>[str, <span class="fn">int</span> | <span class="kw">None</span>]:
+    <span class="cm">"""Returns (compiled_prompt, prompt_version). Falls back gracefully."""</span>
+    <span class="kw">try</span>:
+        prompt_obj = langfuse.<span class="fn">get_prompt</span>(
+            <span class="st">"qa-architect-system"</span>,
+            cache_ttl_seconds=<span class="nu">300</span>,   <span class="cm"># cache 5 min in production</span>
+            fallback=FALLBACK_SYSTEM,  <span class="cm"># used if Langfuse is unreachable</span>
+        )
+        compiled = prompt_obj.<span class="fn">compile</span>(**variables)
+        <span class="kw">return</span> compiled, prompt_obj.version
+
+    <span class="kw">except</span> <span class="ty">Exception</span> <span class="kw">as</span> e:
+        <span class="cm"># Langfuse down AND cache cold — use hardcoded fallback</span>
+        <span class="fn">print</span>(<span class="st">f"[WARN] Langfuse unavailable: {e}. Using fallback prompt."</span>)
+        <span class="kw">return</span> FALLBACK_SYSTEM, <span class="kw">None</span>
+
+
+<span class="cm"># Usage:
+# system, version = get_system_prompt_safely(
+#     experience_years="20",
+#     specialisation="test automation",
+#     style="concise"
+# )</span>
+</code></pre>
+      </div>
+
+      <div class="warn">
+        <strong>Don't pass <code>cache_ttl_seconds=0</code> in production.</strong> It makes every request hit Langfuse Cloud, adding 50-200ms of latency to every LLM call. Use it only in dev/testing when you want to see prompt changes immediately without waiting for the cache to expire.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 9: Mini-project -->
+  <div class="step" id="s9">
+    <div class="shdr">
+      <div class="snum">9</div>
+      <div>
+        <div class="stitle">Hour 1 mini-project: prompt-managed chatbot</div>
+        <div class="ssub">05_prompt_chatbot.py — Day 1 capstone + prompt management</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <p>Upgrade the Day 1 capstone chatbot so every LLM call pulls its system prompt from Langfuse instead of a hardcoded string. The QA team can now iterate on the chatbot's persona without touching Python code.</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> day2/05_prompt_chatbot.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid
+load_dotenv(<span class="st">"../.env"</span>)
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+FALLBACK_SYSTEM = <span class="st">"You are an experienced QA Architect. Provide practical advice."</span>
+
+
+<span class="at">@observe</span>(name=<span class="st">"prompt-fetch"</span>)
+<span class="kw">def</span> <span class="fn">fetch_system_prompt</span>(specialisation: str, style: str) -> <span class="fn">tuple</span>:
+    <span class="cm">"""Fetch & compile system prompt from Langfuse. Returns (text, prompt_obj)."""</span>
+    <span class="kw">try</span>:
+        obj = langfuse.<span class="fn">get_prompt</span>(
+            <span class="st">"qa-architect-system"</span>,
+            cache_ttl_seconds=<span class="nu">300</span>,
+            fallback=FALLBACK_SYSTEM,
+        )
+        text = obj.<span class="fn">compile</span>(
+            experience_years=<span class="st">"20"</span>,
+            specialisation=specialisation,
+            style=style,
+        )
+        langfuse.<span class="fn">update_current_span</span>(
+            output={<span class="st">"prompt_name"</span>: obj.name, <span class="st">"version"</span>: <span class="fn">str</span>(obj.version)},
+        )
+        <span class="kw">return</span> text, obj
+    <span class="kw">except</span> <span class="ty">Exception</span>:
+        <span class="kw">return</span> FALLBACK_SYSTEM, <span class="kw">None</span>
+
+
+<span class="at">@observe</span>(name=<span class="st">"chat-llm-call"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">call_llm</span>(messages: list, prompt_obj, turn: int) -> str:
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        model_parameters={<span class="st">"temperature"</span>: <span class="nu">0.6</span>},
+        input=messages,
+        prompt=prompt_obj,           <span class="cm"># ← links generation to prompt version</span>
+        metadata={<span class="st">"turn"</span>: <span class="fn">str</span>(turn)},
+    )
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=messages,
+        temperature=<span class="nu">0.6</span>,
+    )
+    reply = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(
+        output=reply,
+        usage={
+            <span class="st">"input"</span>:  response.usage.prompt_tokens,
+            <span class="st">"output"</span>: response.usage.completion_tokens,
+        },
+    )
+    <span class="kw">return</span> reply
+
+
+<span class="at">@observe</span>(name=<span class="st">"chat-turn"</span>)
+<span class="kw">def</span> <span class="fn">process_turn</span>(messages: list, system_text: str,
+                  prompt_obj, turn: int) -> str:
+    <span class="kw">return</span> <span class="fn">call_llm</span>(messages, prompt_obj, turn)
+
+
+<span class="kw">class</span> <span class="ty">PromptManagedChatbot</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, user_id: str = <span class="st">"user-123"</span>):
+        self.user_id    = user_id
+        self.session_id = <span class="st">f"pm-{uuid.uuid4().hex[:8]}"</span>
+        self.turn       = <span class="nu">0</span>
+
+        <span class="cm"># Fetch prompt once at startup — refreshes from cache every 5 min</span>
+        self.system_text, self.prompt_obj = <span class="fn">fetch_system_prompt</span>(
+            specialisation=<span class="st">"test strategy and quality engineering"</span>,
+            style=<span class="st">"concise, structured, with examples"</span>,
+        )
+        self.history = [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: self.system_text}]
+
+        v = <span class="fn">getattr</span>(self.prompt_obj, <span class="st">"version"</span>, <span class="st">"fallback"</span>)
+        <span class="fn">print</span>(<span class="st">f"\n{'='*52}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  QA Architect · Prompt-Managed Chatbot"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Prompt  : qa-architect-system v{v}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Session : {self.session_id}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Type 'quit' to exit"</span>)
+        <span class="fn">print</span>(<span class="st">f"{'='*52}\n"</span>)
+
+    <span class="kw">def</span> <span class="fn">chat</span>(self, user_input: str) -> str:
+        self.turn += <span class="nu">1</span>
+        self.history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_input})
+
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"PM-Turn {self.turn}"</span>,
+            session_id=self.session_id,
+            user_id=self.user_id,
+            tags=[<span class="st">"prompt-managed"</span>, <span class="st">"day2"</span>],
+            metadata={<span class="st">"turn"</span>: <span class="fn">str</span>(self.turn), <span class="st">"tutorial"</span>: <span class="st">"day2-hour1"</span>},
+        ):
+            reply = <span class="fn">process_turn</span>(
+                self.history, self.system_text,
+                self.prompt_obj, self.turn
+            )
+
+        self.history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: reply})
+        <span class="kw">return</span> reply
+
+    <span class="kw">def</span> <span class="fn">end</span>(self):
+        langfuse.<span class="fn">flush</span>()
+        <span class="fn">print</span>(<span class="st">f"\n✓ {self.turn} turns traced → Sessions → {self.session_id}"</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    bot = <span class="fn">PromptManagedChatbot</span>(user_id=<span class="st">"user-123"</span>)
+    <span class="kw">while</span> <span class="ty">True</span>:
+        q = <span class="fn">input</span>(<span class="st">"You: "</span>).<span class="fn">strip</span>()
+        <span class="kw">if</span> q.lower() <span class="kw">in</span> (<span class="st">"quit"</span>, <span class="st">"q"</span>):
+            <span class="kw">break</span>
+        <span class="kw">if</span> q:
+            <span class="fn">print</span>(<span class="st">f"\nQA Architect: {bot.chat(q)}\n"</span>)
+    bot.<span class="fn">end</span>()
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch"><span class="cf"><span class="lt lb">BASH</span> run the chatbot</span><button class="copy" onclick="copyCode(this)">copy</button></div>
+        <pre><code><span class="bp">$</span> python 05_prompt_chatbot.py
+
+<span class="bc"># Ask a few questions, then:</span>
+<span class="bc"># 1. Open Langfuse UI → Prompt Management → qa-architect-system</span>
+<span class="bc"># 2. Edit the prompt (add "Always use numbered lists" to the style)</span>
+<span class="bc"># 3. Save as new version → promote to production</span>
+<span class="bc"># 4. Wait 5 min (cache TTL) or restart the chatbot</span>
+<span class="bc"># 5. Ask the same question — the response format changes. Zero redeploy.</span></code></pre>
+      </div>
+
+      <div class="blue">
+        <strong>Trace tree in dashboard:</strong>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:8px;line-height:1.9;color:var(--text);">
+          PM-Turn 1 (TRACE)<br>
+          &nbsp;&nbsp;└─ chat-turn (SPAN)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ prompt-fetch (SPAN) → output: {prompt_name, version}<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ chat-llm-call (GENERATION) → Prompt: qa-architect-system v2
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- CHECKPOINT -->
+  <div class="checkpoint">
+    <div class="cp-title">✓ Hour 1 checkpoint</div>
+    <div class="cp-grid">
+      <div class="cp-item"><span class="cp-icon">✓</span> Understand why hardcoded prompts are a problem</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Know versions vs labels and how they work</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Create text and chat prompts via SDK</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Edit and version prompts in the UI</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> get_prompt() + compile() runtime pattern</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Store model config alongside prompt</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Link prompt versions to generation traces</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Deploy v2 without any code change</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Fallback + caching for production safety</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Chatbot pulls prompt from Langfuse at runtime</div>
+    </div>
+  </div>
+
+  <!-- EXERCISE -->
+  <div class="exercise">
+    <div class="ex-hdr">
+      <span class="ex-badge">MINI EXERCISE</span>
+      <span class="ex-title">Extend before Hour 2</span>
+    </div>
+    <div class="ex-body">
+      <ul>
+        <li><strong>Exercise 1 — Chat prompt in action:</strong> In <code class="il">02_use_prompts.py</code>, call the LLM with <code class="il">compiled_messages</code> from the <code class="il">qa-test-case-chat</code> prompt. The compiled messages already include the system and user turns — pass them directly to <code class="il">client.chat.completions.create(messages=compiled_messages)</code>. What test cases does it generate?</li>
+        <li><strong>Exercise 2 — UI-only prompt update:</strong> Without touching any Python file, go to Langfuse UI → Prompt Management → <code class="il">qa-architect-system</code> → edit the prompt to add a new instruction at the end: <em>"Always end your response with a one-line TL;DR."</em> → Save → promote to production. Restart <code class="il">05_prompt_chatbot.py</code> and verify the responses now end with a TL;DR.</li>
+        <li><strong>Exercise 3 — Rollback:</strong> After Exercise 2, find the old version in the UI and move the <code class="il">production</code> label back to it. Restart the chatbot — the TL;DR instruction is gone. This is one-click rollback in action.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- NEXT -->
+  <div class="next">
+    <div>
+      <div class="nl">Up next — Day 2 · Hour 2</div>
+      <div class="nt">Scoring & user feedback</div>
+      <div class="nd">Add thumbs up/down feedback to the chatbot, build numeric quality scores, and create a feedback loop that surfaces low-quality traces in Langfuse for human review.</div>
+    </div>
+    <div class="na">→</div>
+  </div>
+
+</main>
+</div>
+
+<script>
+function copyCode(btn) {
+  const pre = btn.closest('.cb').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+const sections = document.querySelectorAll('.step[id]');
+const items = document.querySelectorAll('.sbi[href^="#"]');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      items.forEach(a => a.classList.remove('active'));
+      const a = document.querySelector(`.sbi[href="#${e.target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0% -60% 0%' });
+sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

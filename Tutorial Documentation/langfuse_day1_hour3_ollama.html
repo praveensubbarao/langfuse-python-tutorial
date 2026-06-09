@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langfuse + Ollama · Day 1 · Hour 3</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#13161e; --surface2:#1a1e28; --border:#252a38; --border2:#2e3548;
+    --text:#e8eaf0; --muted:#6b7394; --dim:#3d4460;
+    --accent:#7c9eff; --accent2:#a78bfa; --accent3:#34d399; --accent4:#fb923c; --accent5:#f472b6;
+    --code-bg:#0a0c12; --highlight:#1e2235;
+    --tag-blue:#1a2540; --tag-blue-t:#7c9eff;
+    --tag-green:#0f2018; --tag-green-t:#34d399;
+    --tag-purple:#1e1530; --tag-purple-t:#a78bfa;
+    --tag-orange:#201509; --tag-orange-t:#fb923c;
+    --tag-pink:#200f18; --tag-pink-t:#f472b6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;font-size:16px;}
+
+  /* HEADER */
+  header{border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;background:rgba(13,15,20,.93);backdrop-filter:blur(14px);z-index:100;display:flex;align-items:center;justify-content:space-between;height:56px;}
+  .logo-pill{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;letter-spacing:.05em;}
+  .header-left{display:flex;align-items:center;gap:12px;}
+  .header-title{font-size:13px;color:var(--muted);font-weight:300;}
+  .chips{display:flex;gap:6px;}
+  .chip{font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+  .chip.done{border-color:var(--accent3);color:var(--accent3);background:rgba(52,211,153,.07);}
+  .chip.active{border-color:var(--accent);color:var(--accent);background:rgba(124,158,255,.08);}
+
+  /* LAYOUT */
+  .layout{display:flex;min-height:calc(100vh - 56px);}
+
+  /* SIDEBAR */
+  aside{width:240px;flex-shrink:0;border-right:1px solid var(--border);padding:2rem 0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;}
+  .sb-section{padding:0 1.25rem;margin-bottom:2rem;}
+  .sb-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:.75rem;}
+  .sb-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:2px;transition:all .15s;}
+  .sb-item:hover{background:var(--surface2);color:var(--text);}
+  .sb-item.active{background:var(--highlight);color:var(--accent);}
+  .dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;flex-shrink:0;}
+  .dot.done{background:rgba(52,211,153,.15);color:var(--accent3);}
+  .dot.cur{background:rgba(124,158,255,.15);color:var(--accent);}
+  .dot.todo{background:var(--surface2);color:var(--dim);}
+
+  /* MAIN */
+  main{flex:1;padding:3rem 3.5rem;max-width:900px;}
+
+  /* HERO */
+  .hero{margin-bottom:3rem;padding-bottom:2.5rem;border-bottom:1px solid var(--border);}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+  .eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--accent5);}
+  .hero h1{font-family:'Fraunces',serif;font-size:2.6rem;font-weight:300;line-height:1.15;color:var(--text);margin-bottom:1rem;}
+  .hero h1 em{font-style:italic;color:var(--accent5);}
+  .hero-sub{font-size:15px;color:var(--muted);max-width:560px;line-height:1.7;}
+  .hero-meta{display:flex;gap:1.5rem;margin-top:1.5rem;flex-wrap:wrap;}
+  .mbadge{display:flex;align-items:center;gap:6px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--muted);}
+  .mdot{width:6px;height:6px;border-radius:50%;background:var(--accent3);}
+
+  /* RECAP */
+  .recap{background:rgba(52,211,153,.04);border:1px solid rgba(52,211,153,.18);border-radius:10px;padding:1.25rem 1.5rem;margin-bottom:2.5rem;}
+  .recap-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--accent3);text-transform:uppercase;margin-bottom:.75rem;}
+  .recap-items{display:flex;flex-wrap:wrap;gap:10px;}
+  .ri{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);}
+  .ri-icon{color:var(--accent3);}
+
+  /* CALLOUT BOXES */
+  .insight{background:rgba(124,158,255,.05);border:1px solid rgba(124,158,255,.2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .insight strong{color:var(--accent);font-weight:500;}
+  .warn{background:rgba(251,146,60,.05);border:1px solid rgba(251,146,60,.2);border-left:3px solid var(--accent4);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .warn strong{color:var(--accent4);font-weight:500;}
+  .success{background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.2);border-left:3px solid var(--accent3);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .success strong{color:var(--accent3);font-weight:500;}
+  .purple{background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.2);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .purple strong{color:var(--accent2);font-weight:500;}
+  .pink{background:rgba(244,114,182,.05);border:1px solid rgba(244,114,182,.2);border-left:3px solid var(--accent5);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;font-size:14px;color:var(--text);line-height:1.65;}
+  .pink strong{color:var(--accent5);font-weight:500;}
+
+  /* STEPS */
+  .step{margin-bottom:3rem;}
+  .step-hdr{display:flex;align-items:center;gap:14px;margin-bottom:1.25rem;}
+  .step-num{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent5),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+  .step-title{font-family:'Fraunces',serif;font-size:1.3rem;font-weight:500;color:var(--text);line-height:1.2;}
+  .step-sub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+  .step-body{padding-left:50px;}
+  p{margin-bottom:1rem;color:var(--muted);font-size:15px;}
+  p strong{color:var(--text);font-weight:500;}
+
+  /* CODE */
+  .cb{background:var(--code-bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;margin:1.25rem 0;}
+  .ch{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;}
+  .cf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .lt{font-size:10px;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .lb{background:var(--tag-green);color:var(--tag-green-t);}
+  .lp{background:var(--tag-blue);color:var(--tag-blue-t);}
+  .lo{background:var(--tag-orange);color:var(--tag-orange-t);}
+  .copy{background:none;border:1px solid var(--border2);color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:5px;cursor:pointer;transition:all .15s;}
+  .copy:hover{background:var(--surface2);color:var(--text);}
+  .copy.copied{color:var(--accent3);border-color:var(--accent3);}
+  pre{padding:1.25rem 1.5rem;overflow-x:auto;line-height:1.7;}
+  code{font-family:'JetBrains Mono',monospace;font-size:13px;}
+  code.il{background:var(--surface2);border:1px solid var(--border2);padding:1px 6px;border-radius:4px;font-size:12.5px;color:var(--accent);}
+
+  /* SYNTAX */
+  .kw{color:#c792ea;} .fn{color:#82aaff;} .st{color:#c3e88d;} .cm{color:#4a5568;font-style:italic;}
+  .nu{color:#f78c6c;} .ty{color:#ffcb6b;} .at{color:#fb923c;}
+  .bp{color:var(--accent3);user-select:none;} .bc{color:var(--dim);font-style:italic;}
+  .ek{color:var(--accent4);} .ev{color:var(--accent3);} .ec{color:var(--dim);font-style:italic;}
+
+  /* DIAGRAM */
+  .diagram{background:var(--code-bg);border:1px solid var(--border2);border-radius:10px;padding:1.5rem 1.75rem;margin:1.25rem 0;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:2;overflow-x:auto;}
+  .dt{color:#7c9eff;font-weight:700;} .ds{color:#fb923c;font-weight:700;} .dg{color:#a78bfa;font-weight:700;}
+  .df{color:#34d399;} .dv{color:#6b7394;} .da{color:#3d4460;}
+
+  /* SESSION VISUAL */
+  .session-visual{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin:1.25rem 0;}
+  .sv-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;}
+  .sv-session{border:1px dashed var(--accent5);border-radius:8px;padding:1rem;margin-bottom:.75rem;}
+  .sv-session-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent5);margin-bottom:.75rem;}
+  .sv-trace{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:.6rem 1rem;margin-bottom:.5rem;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .sv-trace-icon{color:var(--accent);font-size:11px;font-family:'JetBrains Mono',monospace;}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:13.5px;}
+  th{text-align:left;padding:10px 14px;background:var(--surface);border:1px solid var(--border2);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:500;}
+  td{padding:10px 14px;border:1px solid var(--border);color:var(--muted);vertical-align:top;line-height:1.5;font-size:13px;}
+  tr:hover td{background:var(--surface);}
+  td strong{color:var(--text);font-weight:500;}
+
+  /* CHECKPOINT */
+  .checkpoint{background:linear-gradient(135deg,rgba(52,211,153,.06),rgba(244,114,182,.06));border:1px solid rgba(52,211,153,.2);border-radius:10px;padding:1.5rem;margin:2.5rem 0;}
+  .cp-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem;}
+  .cp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;}
+  .cp-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);}
+  .cp-icon{color:var(--accent3);flex-shrink:0;}
+
+  /* EXERCISE */
+  .exercise{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;margin-top:2rem;}
+  .ex-hdr{display:flex;align-items:center;gap:10px;margin-bottom:1rem;}
+  .ex-badge{background:rgba(244,114,182,.12);color:var(--accent5);border:1px solid rgba(244,114,182,.3);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.08em;}
+  .ex-title{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:500;color:var(--text);}
+  .ex-body{font-size:14px;color:var(--muted);line-height:1.7;}
+  .ex-body ul{padding-left:1.25rem;margin-top:.5rem;}
+  .ex-body li{margin-bottom:8px;}
+
+  /* NEXT */
+  .next{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:2.5rem;}
+  .next-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
+  .next-title{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:500;color:var(--text);}
+  .next-desc{font-size:13px;color:var(--muted);margin-top:4px;}
+  .next-arrow{font-size:22px;color:var(--accent5);flex-shrink:0;}
+
+  /* DAY COMPLETE */
+  .day-complete{background:linear-gradient(135deg,rgba(244,114,182,.08),rgba(167,139,250,.08));border:1px solid rgba(244,114,182,.3);border-radius:12px;padding:2rem;margin-top:2.5rem;text-align:center;}
+  .dc-title{font-family:'Fraunces',serif;font-size:1.8rem;font-weight:300;color:var(--text);margin-bottom:.5rem;}
+  .dc-sub{font-size:14px;color:var(--muted);margin-bottom:1.5rem;}
+  .dc-pills{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
+  .dc-pill{font-size:12px;font-family:'JetBrains Mono',monospace;padding:4px 14px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);}
+
+  hr.div{border:none;border-top:1px solid var(--border);margin:2.5rem 0;}
+  ::-webkit-scrollbar{width:6px;height:6px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+  @media(max-width:768px){aside{display:none;}main{padding:2rem 1.5rem;}.hero h1{font-size:1.9rem;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <span class="logo-pill">LANGFUSE</span>
+    <span class="header-title">Python Tutorial · Ollama Edition</span>
+  </div>
+  <div class="chips">
+    <span class="chip">Day 1</span>
+    <span class="chip done">Hour 1 ✓</span>
+    <span class="chip done">Hour 2 ✓</span>
+    <span class="chip active">Hour 3</span>
+  </div>
+</header>
+
+<div class="layout">
+<aside>
+  <div class="sb-section">
+    <div class="sb-label">Hour 3 · Steps</div>
+    <a class="sb-item active" href="#s1"><span class="dot cur">1</span> What are sessions?</a>
+    <a class="sb-item" href="#s2"><span class="dot todo">2</span> session_id pattern</a>
+    <a class="sb-item" href="#s3"><span class="dot todo">3</span> Multi-turn chatbot</a>
+    <a class="sb-item" href="#s4"><span class="dot todo">4</span> Conversation history</a>
+    <a class="sb-item" href="#s5"><span class="dot todo">5</span> Async with @observe</a>
+    <a class="sb-item" href="#s6"><span class="dot todo">6</span> Common pitfalls</a>
+    <a class="sb-item" href="#s7"><span class="dot todo">7</span> Day 1 capstone</a>
+  </div>
+  <div class="sb-section">
+    <div class="sb-label">Day 1 Progress</div>
+    <a class="sb-item" href="#"><span class="dot done">H1</span> Setup & first trace</a>
+    <a class="sb-item" href="#"><span class="dot done">H2</span> Data model deep-dive</a>
+    <a class="sb-item" href="#s1"><span class="dot cur">H3</span> Sessions & async</a>
+  </div>
+  <div class="sb-section">
+    <div class="sb-label">Key concepts</div>
+    <div style="font-size:12px;color:var(--muted);padding:0 10px;line-height:1.8;">
+      <div><span style="color:var(--accent5)">session_id</span> — groups traces</div>
+      <div><span style="color:var(--accent2)">conversation history</span> — passed manually</div>
+      <div><span style="color:var(--accent3)">async @observe</span> — same API, works out of the box</div>
+    </div>
+  </div>
+</aside>
+
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eyebrow">Day 1 · Hour 3 of 9</div>
+    <h1>Sessions, chatbots &amp;<br><em>async tracing</em></h1>
+    <p class="hero-sub">Group traces across a conversation into one session, build a real multi-turn QA chatbot, and trace async Python functions. This completes Day 1 — you'll finish with a fully instrumented, session-aware chatbot running locally.</p>
+    <div class="hero-meta">
+      <span class="mbadge"><span class="mdot"></span> ~60 minutes</span>
+      <span class="mbadge"><span class="mdot" style="background:var(--accent5)"></span> 3 Python files + capstone</span>
+      <span class="mbadge"><span class="mdot" style="background:var(--accent2)"></span> Completes Day 1</span>
+    </div>
+  </div>
+
+  <!-- RECAP -->
+  <div class="recap">
+    <div class="recap-title">✓ From Hour 2 — key fixes carried forward</div>
+    <div class="recap-items">
+      <span class="ri"><span class="ri-icon">✓</span> Never mix langfuse.openai + as_type="generation" on same call</span>
+      <span class="ri"><span class="ri-icon">✓</span> propagate_attributes() wraps the call site, not inside the function</span>
+      <span class="ri"><span class="ri-icon">✓</span> Nested traces visible in dashboard timeline view</span>
+      <span class="ri"><span class="ri-icon">✓</span> ERROR-level spans for graceful degradation</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: What are sessions -->
+  <div class="step" id="s1">
+    <div class="step-hdr">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">What are sessions?</div>
+        <div class="step-sub">grouping multiple traces into one conversation</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>So far every script run has created <strong>separate, isolated traces</strong>. In a real chatbot, a user asks 5 questions in a row — those 5 traces should be grouped together as one <strong>session</strong>, so you can replay the whole conversation and understand the context.</p>
+
+      <div class="session-visual">
+        <div class="sv-title">Without sessions vs with sessions</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-family:'JetBrains Mono',monospace;">❌ Without session_id</div>
+            <div class="sv-trace"><span class="sv-trace-icon">TRACE</span> qa-pipeline (orphan)</div>
+            <div class="sv-trace"><span class="sv-trace-icon">TRACE</span> qa-pipeline (orphan)</div>
+            <div class="sv-trace"><span class="sv-trace-icon">TRACE</span> qa-pipeline (orphan)</div>
+            <div style="font-size:11px;color:var(--dim);margin-top:6px;">3 unrelated traces. No way to know they came from the same user conversation.</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--accent5);margin-bottom:8px;font-family:'JetBrains Mono',monospace;">✓ With session_id</div>
+            <div class="sv-session">
+              <div class="sv-session-label">SESSION: chat-session-abc123</div>
+              <div class="sv-trace"><span class="sv-trace-icon">TRACE</span> Turn 1: "What is BVA?"</div>
+              <div class="sv-trace"><span class="sv-trace-icon">TRACE</span> Turn 2: "Give me an example"</div>
+              <div class="sv-trace"><span class="sv-trace-icon">TRACE</span> Turn 3: "How does it differ from EP?"</div>
+            </div>
+            <div style="font-size:11px;color:var(--dim);margin-top:6px;">3 traces grouped. Langfuse shows a full session replay with all turns in order.</div>
+          </div>
+        </div>
+      </div>
+
+      <p>A <strong>session</strong> in Langfuse is just a <code class="il">session_id</code> string you pass via <code class="il">propagate_attributes()</code>. Any traces that share the same <code class="il">session_id</code> are grouped together in the Sessions view. That's it — no other API to learn.</p>
+
+      <table>
+        <thead><tr><th>Concept</th><th>What it is</th><th>Scope</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Trace</strong></td><td>One user turn / one pipeline run</td><td>Single request lifecycle</td></tr>
+          <tr><td><strong>Session</strong></td><td>Group of related traces (a conversation)</td><td>Many traces, same session_id</td></tr>
+          <tr><td><strong>User</strong></td><td>The person interacting</td><td>Many sessions, same user_id</td></tr>
+        </tbody>
+      </table>
+
+      <div class="insight">
+        <strong>session_id rules:</strong> Any US-ASCII string under 200 characters. Typically a UUID you generate per conversation start. If the same user has two separate conversations, give them different <code class="il">session_id</code>s but the same <code class="il">user_id</code>.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 2: session_id pattern -->
+  <div class="step" id="s2">
+    <div class="step-hdr">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">The session_id pattern</div>
+        <div class="step-sub">08_sessions.py — three traces, one session</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>The simplest way to understand sessions is to create multiple traces that share a <code class="il">session_id</code>. Create <code class="il">08_sessions.py</code>:</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> 08_sessions.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI   <span class="cm"># ← plain openai (no double-generation)</span>
+
+langfuse = <span class="fn">get_client</span>()
+client  = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+SYSTEM = <span class="st">"You are a QA Architect. Answer concisely in 2-3 sentences."</span>
+
+
+<span class="at">@observe</span>(name=<span class="st">"qa-turn"</span>, as_type=<span class="st">"generation"</span>)
+<span class="kw">def</span> <span class="fn">ask_question</span>(question: str) -> str:
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=[
+            {<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM},
+            {<span class="st">"role"</span>: <span class="st">"user"</span>,   <span class="st">"content"</span>: question},
+        ],
+    )
+    answer = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=[{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}],
+        output=answer,
+        usage={
+            <span class="st">"input"</span>:  response.usage.prompt_tokens,
+            <span class="st">"output"</span>: response.usage.completion_tokens,
+        },
+    )
+    <span class="kw">return</span> answer
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    <span class="cm"># Generate one session_id for this entire conversation</span>
+    session_id = <span class="st">f"session-{uuid.uuid4().hex[:8]}"</span>
+    user_id    = <span class="st">"user-123"</span>
+    <span class="fn">print</span>(<span class="st">f"Session: {session_id}\n"</span>)
+
+    questions = [
+        <span class="st">"What is boundary value analysis?"</span>,
+        <span class="st">"Give me a real-world example of it."</span>,
+        <span class="st">"How is it different from equivalence partitioning?"</span>,
+    ]
+
+    <span class="kw">for</span> i, question <span class="kw">in</span> <span class="fn">enumerate</span>(questions, <span class="nu">1</span>):
+        <span class="cm"># Each question = one trace, all share the same session_id</span>
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Turn {i}: {question[:30]}..."</span>,
+            session_id=session_id,       <span class="cm"># ← same for all turns</span>
+            user_id=user_id,
+            tags=[<span class="st">"qa"</span>, <span class="st">"session-demo"</span>],
+            metadata={<span class="st">"turn"</span>: <span class="fn">str</span>(i)},
+        ):
+            answer = <span class="fn">ask_question</span>(question)
+            <span class="fn">print</span>(<span class="st">f"Q{i}: {question}"</span>)
+            <span class="fn">print</span>(<span class="st">f"A{i}: {answer[:120]}...\n"</span>)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">f"✓ 3 traces sent. Find session '{session_id}' in Langfuse → Sessions."</span>)
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lb">BASH</span> run it</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bp">$</span> python 08_sessions.py</code></pre>
+      </div>
+
+      <div class="success">
+        <strong>In the dashboard:</strong> Go to <strong>Sessions</strong> in the left sidebar. You'll see your new session with 3 traces inside it. Click the session to see a timeline of all turns in order — this is the "session replay" view. Each trace is still independently clickable for its full span/generation detail.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 3: Multi-turn chatbot -->
+  <div class="step" id="s3">
+    <div class="step-hdr">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">Multi-turn chatbot with real conversation history</div>
+        <div class="step-sub">09_chatbot.py — memory, sessions, tracing together</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Step 2 sent the same system prompt every time — no real memory. A proper chatbot passes the <strong>full conversation history</strong> in every request so the LLM can reference earlier turns. Let's build that and trace every turn into the same session.</p>
+
+      <div class="insight">
+        <strong>Important:</strong> LLMs (including Ollama models) are stateless — they don't remember previous calls. You must manually maintain a <code class="il">messages</code> list and append to it after each turn. Langfuse's job is to make every one of those turns visible, not to store the history.
+      </div>
+
+      <p>Create <code class="il">09_chatbot.py</code>:</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> 09_chatbot.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client  = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+SYSTEM_PROMPT = (
+    <span class="st">"You are an experienced QA Architect with 20 years of experience. "</span>
+    <span class="st">"You help software teams improve their testing strategies. "</span>
+    <span class="st">"Be concise and practical."</span>
+)
+
+
+<span class="at">@observe</span>(name=<span class="st">"chat-turn"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">chat_turn</span>(messages: list, turn_num: int) -> str:
+    <span class="cm">"""
+    One LLM turn. Receives the FULL conversation history as messages.
+    Returns the assistant reply.
+    """</span>
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        model_parameters={<span class="st">"temperature"</span>: <span class="nu">0.7</span>},
+        input=messages,    <span class="cm"># ← full history sent to LLM</span>
+        metadata={<span class="st">"turn_num"</span>: <span class="fn">str</span>(turn_num)},
+    )
+
+    response = client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=messages,
+        temperature=<span class="nu">0.7</span>,
+    )
+    reply = response.choices[<span class="nu">0</span>].message.content
+
+    langfuse.<span class="fn">update_current_generation</span>(
+        output=reply,
+        usage={
+            <span class="st">"input"</span>:  response.usage.prompt_tokens,
+            <span class="st">"output"</span>: response.usage.completion_tokens,
+        },
+    )
+    <span class="kw">return</span> reply
+
+
+<span class="kw">class</span> <span class="ty">QAChatbot</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, user_id: str):
+        self.user_id    = user_id
+        self.session_id = <span class="st">f"chat-{uuid.uuid4().hex[:10]}"</span>
+        self.turn       = <span class="nu">0</span>
+        <span class="cm"># Conversation history — grows with each turn</span>
+        self.messages   = [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM_PROMPT}]
+        <span class="fn">print</span>(<span class="st">f"🤖 QA Architect Chatbot"</span>)
+        <span class="fn">print</span>(<span class="st">f"   Session : {self.session_id}"</span>)
+        <span class="fn">print</span>(<span class="st">f"   User    : {self.user_id}"</span>)
+        <span class="fn">print</span>(<span class="st">f"   Type 'quit' to exit\n"</span>)
+
+    <span class="kw">def</span> <span class="fn">chat</span>(self, user_input: str) -> str:
+        self.turn += <span class="nu">1</span>
+
+        <span class="cm"># Append user message to history</span>
+        self.messages.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_input})
+
+        <span class="cm"># Each turn = one trace, all grouped under same session_id</span>
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Turn {self.turn}"</span>,
+            session_id=self.session_id,
+            user_id=self.user_id,
+            tags=[<span class="st">"chatbot"</span>, <span class="st">"qa-architect"</span>],
+            metadata={
+                <span class="st">"turn"</span>:         <span class="fn">str</span>(self.turn),
+                <span class="st">"history_len"</span>:  <span class="fn">str</span>(<span class="fn">len</span>(self.messages)),
+            },
+        ):
+            reply = <span class="fn">chat_turn</span>(self.messages, self.turn)
+
+        <span class="cm"># Append assistant reply to history for next turn</span>
+        self.messages.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: reply})
+        <span class="kw">return</span> reply
+
+    <span class="kw">def</span> <span class="fn">end_session</span>(self):
+        langfuse.<span class="fn">flush</span>()
+        <span class="fn">print</span>(<span class="st">f"\n✓ Session complete. {self.turn} turns traced."</span>)
+        <span class="fn">print</span>(<span class="st">f"  Find it in Langfuse → Sessions → {self.session_id}"</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    bot = <span class="fn">QAChatbot</span>(user_id=<span class="st">"user-123"</span>)
+
+    <span class="kw">while</span> <span class="ty">True</span>:
+        user_input = <span class="fn">input</span>(<span class="st">"You: "</span>).<span class="fn">strip</span>()
+        <span class="kw">if</span> user_input.lower() <span class="kw">in</span> (<span class="st">"quit"</span>, <span class="st">"exit"</span>, <span class="st">"q"</span>):
+            <span class="kw">break</span>
+        <span class="kw">if</span> <span class="kw">not</span> user_input:
+            <span class="kw">continue</span>
+        reply = bot.<span class="fn">chat</span>(user_input)
+        <span class="fn">print</span>(<span class="st">f"\nQA Architect: {reply}\n"</span>)
+
+    bot.<span class="fn">end_session</span>()
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lb">BASH</span> run it</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bp">$</span> python 09_chatbot.py
+
+<span class="bc"># Try this conversation to test memory:</span>
+<span class="bc"># You: My name is Alex and I'm a QA lead</span>
+<span class="bc"># You: What testing techniques would you recommend for me?</span>
+<span class="bc"># You: Remind me what my role is</span>   ← tests if history is working
+<span class="bc"># You: quit</span></code></pre>
+      </div>
+
+      <div class="success">
+        <strong>What to verify in the dashboard:</strong> In Sessions, click your new session. Each turn appears as a separate trace. Click Turn 2 — its generation input should contain Turn 1's exchange in the messages array. Turn 3's input should contain Turn 1 and Turn 2. This is how you verify the history is being passed correctly.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 4: Conversation history -->
+  <div class="step" id="s4">
+    <div class="step-hdr">
+      <div class="step-num">4</div>
+      <div>
+        <div class="step-title">Understanding conversation history in traces</div>
+        <div class="step-sub">what the dashboard tells you about memory</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>The <strong>Input panel</strong> of each generation in Langfuse shows the full <code class="il">messages</code> array sent to the LLM. This is extremely useful for debugging — it lets you see exactly what context the model had when it generated a response.</p>
+
+      <div class="diagram">
+<span class="dv">Turn 1 generation input:</span>
+<span class="da">[</span>
+  <span class="df">{role: "system", content: "You are a QA Architect..."}</span><span class="da">,</span>
+  <span class="df">{role: "user",   content: "What is boundary value analysis?"}</span>
+<span class="da">]</span>   <span class="dv">← 2 messages</span>
+
+<span class="dv">Turn 2 generation input:</span>
+<span class="da">[</span>
+  <span class="df">{role: "system",    content: "You are a QA Architect..."}</span><span class="da">,</span>
+  <span class="df">{role: "user",      content: "What is boundary value analysis?"}</span><span class="da">,</span>
+  <span class="df">{role: "assistant", content: "BVA tests at the boundaries of..."}</span><span class="da">,</span>
+  <span class="df">{role: "user",      content: "Give me a real-world example"}</span>
+<span class="da">]</span>   <span class="dv">← 4 messages (full history)</span>
+
+<span class="dv">Turn 3 generation input:</span>
+<span class="da">[</span>
+  <span class="dv">... all 4 from turn 2 ...</span><span class="da">,</span>
+  <span class="df">{role: "assistant", content: "For a login form..."}</span><span class="da">,</span>
+  <span class="df">{role: "user",      content: "How is this different from EP?"}</span>
+<span class="da">]</span>   <span class="dv">← 6 messages</span>
+      </div>
+
+      <p>Notice how <code class="il">usage.input</code> token count grows with each turn — because the context window is filling up. Langfuse's token tracking lets you spot when you're approaching model limits before it becomes a production problem.</p>
+
+      <div class="warn">
+        <strong>Context window management:</strong> Long conversations eventually exceed the model's context window (llama3.2 is 128K tokens, mistral is ~32K). In production you'd implement summarization or truncation. For this tutorial, just be aware of it. The <code class="il">metadata.history_len</code> field you're logging tracks how many messages are in the window.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 5: Async -->
+  <div class="step" id="s5">
+    <div class="step-hdr">
+      <div class="step-num">5</div>
+      <div>
+        <div class="step-title">Async functions with @observe</div>
+        <div class="step-sub">10_async_chatbot.py — same API, async all the way</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Langfuse's <code class="il">@observe</code> decorator works on <code class="il">async def</code> functions without any changes to the decorator itself. OpenTelemetry's async context propagation handles nesting correctly. This matters when you build FastAPI or aiohttp services.</p>
+
+      <div class="purple">
+        <strong>How async context propagation works:</strong> Python's <code class="il">asyncio</code> maintains separate context per task using <code class="il">contextvars</code>. OTel (and therefore Langfuse v4) hooks into this, so each async task gets its own span context. The parent-child relationship is preserved as long as child coroutines are awaited inside the parent's context.
+      </div>
+
+      <p>Create <code class="il">10_async_chatbot.py</code>:</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> 10_async_chatbot.py</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid, asyncio
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> AsyncOpenAI   <span class="cm"># ← async OpenAI client</span>
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">AsyncOpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+SYSTEM = <span class="st">"You are a QA Architect. Be concise."</span>
+
+
+<span class="cm"># ✅ @observe works on async def with zero changes to the decorator</span>
+<span class="at">@observe</span>(name=<span class="st">"async-retrieval"</span>)
+<span class="kw">async def</span> <span class="fn">retrieve_docs</span>(query: str) -> list[str]:
+    <span class="cm"># Simulate an async DB or vector store call</span>
+    <span class="kw">await</span> asyncio.<span class="fn">sleep</span>(<span class="nu">0.05</span>)   <span class="cm"># simulated I/O wait</span>
+    <span class="kw">return</span> [<span class="st">f"Relevant doc for: {query}"</span>]
+
+
+<span class="at">@observe</span>(name=<span class="st">"async-llm-call"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">async def</span> <span class="fn">call_llm</span>(messages: list) -> str:
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        input=messages,
+    )
+    response = <span class="kw">await</span> client.chat.completions.<span class="fn">create</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        messages=messages,
+    )
+    reply = response.choices[<span class="nu">0</span>].message.content
+    langfuse.<span class="fn">update_current_generation</span>(
+        output=reply,
+        usage={
+            <span class="st">"input"</span>:  response.usage.prompt_tokens,
+            <span class="st">"output"</span>: response.usage.completion_tokens,
+        },
+    )
+    <span class="kw">return</span> reply
+
+
+<span class="at">@observe</span>(name=<span class="st">"async-qa-pipeline"</span>)
+<span class="kw">async def</span> <span class="fn">async_qa_turn</span>(question: str, history: list) -> str:
+    <span class="cm"># Both awaited functions become children of this span automatically</span>
+    docs     = <span class="kw">await</span> <span class="fn">retrieve_docs</span>(question)
+    messages = history + [{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: question}]
+    reply    = <span class="kw">await</span> <span class="fn">call_llm</span>(messages)
+    <span class="kw">return</span> reply
+
+
+<span class="kw">async def</span> <span class="fn">run_async_session</span>():
+    session_id = <span class="st">f"async-{uuid.uuid4().hex[:8]}"</span>
+    history    = [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM}]
+
+    questions = [
+        <span class="st">"What is smoke testing?"</span>,
+        <span class="st">"What is sanity testing?"</span>,
+        <span class="st">"What is the key difference between the two?"</span>,
+    ]
+
+    <span class="fn">print</span>(<span class="st">f"Async session: {session_id}\n"</span>)
+
+    <span class="kw">for</span> i, question <span class="kw">in</span> <span class="fn">enumerate</span>(questions, <span class="nu">1</span>):
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Async Turn {i}"</span>,
+            session_id=session_id,
+            user_id=<span class="st">"user-123"</span>,
+            tags=[<span class="st">"async"</span>, <span class="st">"qa-chatbot"</span>],
+            metadata={<span class="st">"turn"</span>: <span class="fn">str</span>(i)},
+        ):
+            reply = <span class="kw">await</span> <span class="fn">async_qa_turn</span>(question, history)
+
+        history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"user"</span>,      <span class="st">"content"</span>: question})
+        history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: reply})
+
+        <span class="fn">print</span>(<span class="st">f"Q{i}: {question}"</span>)
+        <span class="fn">print</span>(<span class="st">f"A{i}: {reply[:120]}...\n"</span>)
+
+    langfuse.<span class="fn">flush</span>()
+    <span class="fn">print</span>(<span class="st">f"✓ Async session complete → Sessions → {session_id}"</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    asyncio.<span class="fn">run</span>(<span class="fn">run_async_session</span>())
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lb">BASH</span> run it</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bp">$</span> python 10_async_chatbot.py</code></pre>
+      </div>
+
+      <p>In the dashboard, each async turn's trace tree should show:</p>
+
+      <div class="diagram">
+<span class="dt">async-qa-pipeline</span>  <span class="dv">(SPAN — the @observe wrapper)</span>
+<span class="da">├──</span> <span class="ds">async-retrieval</span>    <span class="dv">(SPAN — awaited child, correctly nested)</span>
+<span class="da">└──</span> <span class="dg">async-llm-call</span>     <span class="dv">(GENERATION — awaited child, correctly nested)</span>
+      </div>
+
+      <div class="warn">
+        <strong>Async pitfall — don't use asyncio.gather() without care:</strong> If you fire multiple <code class="il">@observe</code>-decorated coroutines concurrently with <code class="il">asyncio.gather()</code>, their spans may interleave incorrectly in the same OTel context. Either run them sequentially (as above) or give each its own isolated context. For this tutorial, sequential is fine.
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 6: Common pitfalls -->
+  <div class="step" id="s6">
+    <div class="step-hdr">
+      <div class="step-num">6</div>
+      <div>
+        <div class="step-title">Common pitfalls — all in one place</div>
+        <div class="step-sub">the mistakes that waste hours, solved in minutes</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <table>
+        <thead><tr><th>Pitfall</th><th>Symptom</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Double generation</strong></td>
+            <td>Two LLM spans for one call (OpenAI-generation child of your generation)</td>
+            <td>Never use <code class="il">langfuse.openai</code> AND <code class="il">as_type="generation"</code> on the same call. Pick one.</td>
+          </tr>
+          <tr>
+            <td><strong>Tags not showing</strong></td>
+            <td>Traces appear but user_id / tags fields are empty</td>
+            <td><code class="il">propagate_attributes()</code> must wrap the <em>call site</em> of the top-level <code class="il">@observe</code> function, not inside it.</td>
+          </tr>
+          <tr>
+            <td><strong>Missing flush()</strong></td>
+            <td>Traces appear hours later or not at all in short scripts</td>
+            <td>Always call <code class="il">langfuse.flush()</code> at the end of scripts. In web servers it's automatic.</td>
+          </tr>
+          <tr>
+            <td><strong>Sequential spans as orphans</strong></td>
+            <td>Two spans appear as separate root traces instead of siblings</td>
+            <td>Wrap both in a parent span. Sequential <code class="il">with</code> blocks at the top level create separate traces.</td>
+          </tr>
+          <tr>
+            <td><strong>Wrong LANGFUSE_BASE_URL</strong></td>
+            <td>Connection errors, 401s, or traces not appearing</td>
+            <td>US account = <code class="il">https://us.cloud.langfuse.com</code>. Check region in your Langfuse account URL.</td>
+          </tr>
+          <tr>
+            <td><strong>session_id too long</strong></td>
+            <td>Session silently dropped, traces appear without a session</td>
+            <td>Keep <code class="il">session_id</code> under 200 characters. UUIDs are always safe.</td>
+          </tr>
+          <tr>
+            <td><strong>Non-string metadata values</strong></td>
+            <td>Some metadata fields missing in dashboard</td>
+            <td>All metadata values must be strings in v4. Use <code class="il">str(turn_num)</code> not <code class="il">turn_num</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- STEP 7: Day 1 Capstone -->
+  <div class="step" id="s7">
+    <div class="step-hdr">
+      <div class="step-num">7</div>
+      <div>
+        <div class="step-title">Day 1 capstone — QA Architect chatbot</div>
+        <div class="step-sub">11_capstone.py — everything from today in one file</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>This final file combines everything from all three hours: sessions, multi-turn history, proper nesting, error handling, rich generation metadata, and a clean class-based architecture. This is the foundation you'll add prompt management and evals to on Days 2 and 3.</p>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lp">PYTHON</span> 11_capstone.py — Day 1 complete</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="kw">from</span> dotenv <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> os, uuid
+load_dotenv()
+
+<span class="kw">from</span> langfuse <span class="kw">import</span> observe, get_client, propagate_attributes
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+langfuse = <span class="fn">get_client</span>()
+client   = <span class="fn">OpenAI</span>(base_url=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_BASE_URL"</span>), api_key=<span class="st">"ollama"</span>)
+
+<span class="cm"># ── Knowledge base (replaces vector DB for tutorial) ──────────────</span>
+KB = {
+    <span class="st">"boundary value"</span>:     [<span class="st">"Test at exact edges and just outside them."</span>],
+    <span class="st">"equivalence"</span>:        [<span class="st">"Divide inputs into classes with identical behaviour."</span>],
+    <span class="st">"smoke"</span>:              [<span class="st">"Shallow tests to verify the build is stable."</span>],
+    <span class="st">"regression"</span>:         [<span class="st">"Re-run tests to ensure existing features still work."</span>],
+    <span class="st">"exploratory"</span>:        [<span class="st">"Unscripted testing guided by tester intuition."</span>],
+}
+
+SYSTEM = (
+    <span class="st">"You are an experienced QA Architect with 20 years of software industry "</span>
+    <span class="st">"experience. Use the provided context when available. Be concise and practical."</span>
+)
+
+
+<span class="at">@observe</span>(name=<span class="st">"knowledge-lookup"</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">lookup_knowledge</span>(query: str) -> list[str]:
+    query_l = query.lower()
+    matched = [docs <span class="kw">for</span> key, docs <span class="kw">in</span> KB.items() <span class="kw">if</span> key <span class="kw">in</span> query_l]
+    results = matched[<span class="nu">0</span>] <span class="kw">if</span> matched <span class="kw">else</span> []
+    langfuse.<span class="fn">update_current_span</span>(
+        output={<span class="st">"found"</span>: <span class="fn">bool</span>(results), <span class="st">"chunks"</span>: <span class="fn">len</span>(results)},
+        metadata={<span class="st">"source"</span>: <span class="st">"local-kb"</span>},
+    )
+    <span class="kw">return</span> results
+
+
+<span class="at">@observe</span>(name=<span class="st">"llm-response"</span>, as_type=<span class="st">"generation"</span>,
+         capture_input=<span class="ty">False</span>, capture_output=<span class="ty">False</span>)
+<span class="kw">def</span> <span class="fn">generate_response</span>(messages: list, context: list[str], turn: int) -> str:
+    <span class="cm"># Build enriched messages with context injected</span>
+    context_text = <span class="st">"\n"</span>.<span class="fn">join</span>(<span class="st">f"- {c}"</span> <span class="kw">for</span> c <span class="kw">in</span> context) <span class="kw">if</span> context <span class="kw">else</span> <span class="st">"None"</span>
+    enriched = messages[:-<span class="nu">1</span>] + [{
+        <span class="st">"role"</span>: <span class="st">"user"</span>,
+        <span class="st">"content"</span>: (
+            <span class="st">f"Context:\n{context_text}\n\n"</span>
+            <span class="kw">if</span> context <span class="kw">else</span> <span class="st">""</span>
+        ) + messages[-<span class="nu">1</span>][<span class="st">"content"</span>],
+    }]
+
+    langfuse.<span class="fn">update_current_generation</span>(
+        model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+        model_parameters={<span class="st">"temperature"</span>: <span class="nu">0.5</span>},
+        input=enriched,
+        metadata={
+            <span class="st">"turn"</span>:            <span class="fn">str</span>(turn),
+            <span class="st">"context_used"</span>:    <span class="fn">str</span>(<span class="fn">bool</span>(context)),
+            <span class="st">"prompt_version"</span>:  <span class="st">"capstone-1.0"</span>,
+        },
+    )
+
+    <span class="kw">try</span>:
+        response = client.chat.completions.<span class="fn">create</span>(
+            model=os.<span class="fn">getenv</span>(<span class="st">"OLLAMA_MODEL"</span>),
+            messages=enriched,
+            temperature=<span class="nu">0.5</span>,
+        )
+        reply = response.choices[<span class="nu">0</span>].message.content
+        langfuse.<span class="fn">update_current_generation</span>(
+            output=reply,
+            usage={
+                <span class="st">"input"</span>:  response.usage.prompt_tokens,
+                <span class="st">"output"</span>: response.usage.completion_tokens,
+            },
+        )
+        <span class="kw">return</span> reply
+
+    <span class="kw">except</span> <span class="ty">Exception</span> <span class="kw">as</span> e:
+        langfuse.<span class="fn">update_current_generation</span>(
+            level=<span class="st">"ERROR"</span>,
+            status_message=<span class="fn">str</span>(e),
+        )
+        <span class="kw">raise</span>
+
+
+<span class="at">@observe</span>(name=<span class="st">"chat-turn-pipeline"</span>)
+<span class="kw">def</span> <span class="fn">process_turn</span>(question: str, history: list, turn: int) -> str:
+    context = <span class="fn">lookup_knowledge</span>(question)
+    reply   = <span class="fn">generate_response</span>(history, context, turn)
+    <span class="kw">return</span> reply
+
+
+<span class="kw">class</span> <span class="ty">QAArchitectChatbot</span>:
+    <span class="st">"""
+    Day 1 Capstone: fully instrumented, session-aware QA Architect chatbot.
+    Every turn is traced with user_id, session_id, tags, and rich generation data.
+    """</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, user_id: str = <span class="st">"user-123"</span>):
+        self.user_id    = user_id
+        self.session_id = <span class="st">f"qa-{uuid.uuid4().hex[:10]}"</span>
+        self.turn       = <span class="nu">0</span>
+        self.history    = [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: SYSTEM}]
+
+        <span class="fn">print</span>(<span class="st">f"\n{'='*50}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  QA Architect Chatbot — Day 1 Capstone"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Session : {self.session_id}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  User    : {self.user_id}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Quit    : type 'quit'"</span>)
+        <span class="fn">print</span>(<span class="st">f"{'='*50}\n"</span>)
+
+    <span class="kw">def</span> <span class="fn">chat</span>(self, user_input: str) -> str:
+        self.turn += <span class="nu">1</span>
+        self.history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: user_input})
+
+        <span class="kw">with</span> <span class="fn">propagate_attributes</span>(
+            trace_name=<span class="st">f"Turn {self.turn}: {user_input[:40]}"</span>,
+            session_id=self.session_id,
+            user_id=self.user_id,
+            tags=[<span class="st">"qa"</span>, <span class="st">"architect"</span>, <span class="st">"capstone"</span>, <span class="st">"day1"</span>],
+            metadata={
+                <span class="st">"turn"</span>:        <span class="fn">str</span>(self.turn),
+                <span class="st">"history_len"</span>: <span class="fn">str</span>(<span class="fn">len</span>(self.history)),
+                <span class="st">"sdk_version"</span>: <span class="st">"4.7.1"</span>,
+            },
+        ):
+            reply = <span class="fn">process_turn</span>(user_input, self.history, self.turn)
+
+        self.history.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: reply})
+        <span class="kw">return</span> reply
+
+    <span class="kw">def</span> <span class="fn">end</span>(self):
+        langfuse.<span class="fn">flush</span>()
+        <span class="fn">print</span>(<span class="st">f"\n{'='*50}"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Session complete · {self.turn} turns traced"</span>)
+        <span class="fn">print</span>(<span class="st">f"  Dashboard → Sessions → {self.session_id}"</span>)
+        <span class="fn">print</span>(<span class="st">f"{'='*50}"</span>)
+
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    bot = <span class="fn">QAArchitectChatbot</span>(user_id=<span class="st">"user-123"</span>)
+    <span class="kw">while</span> <span class="ty">True</span>:
+        q = <span class="fn">input</span>(<span class="st">"You: "</span>).<span class="fn">strip</span>()
+        <span class="kw">if</span> q.lower() <span class="kw">in</span> (<span class="st">"quit"</span>, <span class="st">"q"</span>, <span class="st">"exit"</span>):
+            <span class="kw">break</span>
+        <span class="kw">if</span> q:
+            reply = bot.<span class="fn">chat</span>(q)
+            <span class="fn">print</span>(<span class="st">f"\nQA Architect: {reply}\n"</span>)
+    bot.<span class="fn">end</span>()
+</code></pre>
+      </div>
+
+      <div class="cb">
+        <div class="ch">
+          <span class="cf"><span class="lt lb">BASH</span> run the capstone</span>
+          <button class="copy" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><code><span class="bp">$</span> python 11_capstone.py
+
+<span class="bc"># Suggested test conversation:</span>
+<span class="bc"># You: Explain boundary value analysis</span>
+<span class="bc"># You: Give me a real example with login password length</span>
+<span class="bc"># You: How does this relate to equivalence partitioning?</span>
+<span class="bc"># You: What smoke tests should I write for a login feature?</span>
+<span class="bc"># You: quit</span></code></pre>
+      </div>
+
+      <div class="success">
+        <strong>What the capstone trace tree looks like in Langfuse:</strong>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:10px;line-height:1.9;color:var(--text);">
+          Turn 1 (TRACE)<br>
+          &nbsp;&nbsp;└─ chat-turn-pipeline (SPAN)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ knowledge-lookup (SPAN) — matched: true, chunks: 1<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ llm-response (GENERATION) — tokens, model params, context_used: true
+        </div>
+        <div style="margin-top:10px;">All 4 turns appear in Sessions view under the same session_id. Each trace has user_id, tags ["qa","architect","capstone","day1"], and metadata. Every generation shows prompt_version, turn number, and whether KB context was injected.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="div">
+
+  <!-- CHECKPOINT -->
+  <div class="checkpoint">
+    <div class="cp-title">✓ Hour 3 checkpoint</div>
+    <div class="cp-grid">
+      <div class="cp-item"><span class="cp-icon">✓</span> Understand what sessions are and why they matter</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> session_id groups multiple traces into one conversation</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Built a real multi-turn chatbot with history</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Traced conversation history in generation input panel</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Used @observe on async def — same API, zero changes</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Know all 7 common pitfalls and their fixes</div>
+      <div class="cp-item"><span class="cp-icon">✓</span> Built the Day 1 capstone QA chatbot</div>
+    </div>
+  </div>
+
+  <!-- EXERCISE -->
+  <div class="exercise">
+    <div class="ex-hdr">
+      <span class="ex-badge">MINI EXERCISE</span>
+      <span class="ex-title">Extend the capstone before Day 2</span>
+    </div>
+    <div class="ex-body">
+      <ul>
+        <li><strong>Exercise 1 — Two users, one session each:</strong> Run <code class="il">11_capstone.py</code> twice with different <code class="il">user_id</code> values (<code class="il">"user-123"</code> and <code class="il">"user-456"</code>). In the Users sidebar, verify both appear with their own session counts.</li>
+        <li><strong>Exercise 2 — Add a turn counter span:</strong> Before calling <code class="il">process_turn()</code>, add a context manager span named <code class="il">"turn-validator"</code> that checks if the question is at least 5 characters long. Log <code class="il">level="WARNING"</code> if it's too short. Watch the orange warning badge appear on that trace in the dashboard.</li>
+        <li><strong>Exercise 3 — Get the trace URL:</strong> After each <code class="il">chat()</code> call, print the Langfuse URL for that trace. Hint: inside the <code class="il">propagate_attributes</code> block, call <code class="il">langfuse.get_current_trace_url()</code> — this gives you a direct link to the trace. Very useful for support debugging.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- DAY COMPLETE -->
+  <div class="day-complete">
+    <div class="dc-title">🎉 Day 1 Complete</div>
+    <div class="dc-sub">You've built a fully instrumented, session-aware LLM application — from first trace to production-ready chatbot architecture. Everything runs locally with Ollama, zero cloud LLM costs.</div>
+    <div class="dc-pills">
+      <span class="dc-pill">✓ 11 Python files written</span>
+      <span class="dc-pill">✓ Traces, spans, generations mastered</span>
+      <span class="dc-pill">✓ Sessions & multi-turn working</span>
+      <span class="dc-pill">✓ Async tracing confirmed</span>
+      <span class="dc-pill">✓ 7 pitfalls documented</span>
+    </div>
+  </div>
+
+  <!-- NEXT -->
+  <div class="next">
+    <div>
+      <div class="next-label">Up next — Day 2 · Hour 1</div>
+      <div class="next-title">Prompt Management</div>
+      <div class="next-desc">Version your prompts in Langfuse, pull them at runtime, and deploy prompt changes without any code redeploy. The QA Architect chatbot gets its first production-grade prompt pipeline.</div>
+    </div>
+    <div class="next-arrow">→</div>
+  </div>
+
+</main>
+</div>
+
+<script>
+function copyCode(btn) {
+  const pre = btn.closest('.cb').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+const sections = document.querySelectorAll('.step[id]');
+const items = document.querySelectorAll('.sb-item[href^="#"]');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      items.forEach(a => a.classList.remove('active'));
+      const a = document.querySelector(`.sb-item[href="#${e.target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0% -60% 0%' });
+sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>
